@@ -1,0 +1,8 @@
+# Fitxers de desenvolupament que NO han d'anar dins del ZIP de distribució.
+# `git archive` (local i al workflow) els exclou gràcies a export-ignore.
+/.github         export-ignore
+/.gitignore      export-ignore
+/.gitattributes  export-ignore
+
+# Normalitza finals de línia.
+* text=auto

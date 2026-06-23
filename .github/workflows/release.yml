@@ -1,0 +1,42 @@
+name: Release plugin ZIP
+
+# Es dispara quan es publica un tag de versió (p. ex. v1.0.1, v1.2.0).
+# Construeix el ZIP del plugin i crea/actualitza la Release de GitHub amb l'asset,
+# perquè el Plugin Update Checker el distribueixi a totes les webs.
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Permís mínim perquè el GITHUB_TOKEN pugui crear releases.
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (amb el tag)
+        uses: actions/checkout@v4
+
+      - name: Construir el ZIP del plugin
+        run: |
+          # Respecta .gitattributes (export-ignore) i posa la carpeta del plugin a l'arrel.
+          git archive --format=zip \
+            --prefix=vigilante-network-sync/ \
+            -o vigilante-network-sync.zip \
+            "${GITHUB_REF_NAME}"
+
+      - name: Crear / actualitzar la Release amb l'asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            # La Release ja existeix: només (re)pujem l'asset.
+            gh release upload "${GITHUB_REF_NAME}" vigilante-network-sync.zip --clobber
+          else
+            # Encara no existeix: la creem amb notes generades automàticament.
+            gh release create "${GITHUB_REF_NAME}" vigilante-network-sync.zip \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
