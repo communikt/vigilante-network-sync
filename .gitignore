@@ -1,0 +1,48 @@
+# === Vigilante Network Sync — .gitignore ===
+#
+# IMPORTANT: NO ignorem lib/plugin-update-checker/ (inclòs el seu vendor/ intern):
+# és una llibreria vendoritzada necessària en temps d'execució i ha d'anar al repo.
+# Tampoc ignorem languages/ (enviem .pot, .po i .mo).
+
+# --- Sistemes operatius ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# --- Editors / IDE ---
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# --- Dependències de desenvolupament (no del runtime) ---
+# Si algun dia s'afegeix composer/npm A L'ARREL del plugin per a eines de dev,
+# s'ignoren aquí. La llibreria PUC viu a lib/ i NO es veu afectada.
+/node_modules/
+/vendor/
+composer.lock
+package-lock.json
+
+# --- Build / empaquetat ---
+/build/
+/dist/
+*.zip
+*.tar.gz
+
+# --- Logs i temporals ---
+*.log
+*.cache
+*.tmp
+
+# --- Còpies de conflicte d'iCloud (sufix " 2") ---
+* 2.*
+* 2

@@ -1,0 +1,37 @@
+/* Vigilante Network Sync — estils del panell de xarxa */
+
+.vigsync-wrap .vigsync-status,
+.vigsync-wrap .vigsync-log {
+	max-width: 900px;
+	margin: 1em 0;
+}
+
+.vigsync-wrap .vigsync-status th {
+	width: 280px;
+}
+
+.vigsync-ok {
+	color: #1a7f37;
+	font-weight: 600;
+}
+
+.vigsync-bad {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+.vigsync-muted {
+	color: #646970;
+}
+
+.vigsync-help {
+	max-width: 900px;
+	padding: 0.5em 1.25em;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-left: 4px solid #2271b1;
+}
+
+.vigsync-help p {
+	margin: 0.75em 0;
+}
