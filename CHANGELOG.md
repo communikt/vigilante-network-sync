@@ -15,6 +15,17 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ### Por hacer
 - Prueba end-to-end en un multisite real (sync + redirect con sesión cerrada).
 
+## [1.0.1] - 2026-06-23
+
+### Añadido
+- Licencia `LICENSE` (GPLv2 completa).
+- `.gitattributes` para excluir archivos de desarrollo del ZIP de distribución.
+- Workflow de GitHub Actions que empaqueta el ZIP y publica la Release en cada tag `v*`.
+
+### Notas
+- Versión de mantenimiento/herramientas: sin cambios funcionales en el plugin respecto a
+  la 1.0.0. Sirve además para validar el flujo automático de publicación de releases.
+
 ## [1.0.0] - 2026-06-23
 
 Primera versión. Plugin de red para multisite que complementa Vigilante.
@@ -50,5 +61,6 @@ Primera versión. Plugin de red para multisite que complementa Vigilante.
 - Validado contra **Vigilante 2.8.0**.
 - Requiere WordPress multisite 6.2+ y PHP 7.4+.
 
-[Sin publicar]: https://github.com/communikt/vigilante-network-sync/compare/v1.0.0...HEAD
+[Sin publicar]: https://github.com/communikt/vigilante-network-sync/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/communikt/vigilante-network-sync/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/communikt/vigilante-network-sync/releases/tag/v1.0.0
