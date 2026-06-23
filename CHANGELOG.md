@@ -13,9 +13,7 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Sin publicar]
 
 ### Por hacer
-- Crear el repositorio público de GitHub `communikt/vigilante-network-sync`.
 - Prueba end-to-end en un multisite real (sync + redirect con sesión cerrada).
-- Publicar la primera Release v1.0.0.
 
 ## [1.0.0] - 2026-06-23
 
