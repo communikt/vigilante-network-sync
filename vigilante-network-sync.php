@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Vigilante Network Sync
  * Plugin URI: https://github.com/communikt/vigilante-network-sync
- * Description: Capa de xarxa per a multisite que replica la configuració del plugin Vigilante des del site principal a la resta de sites, amb redirect de login unificat opcional. Complementa Vigilante; no el modifica.
- * Version: 1.0.1
+ * Description: Capa de xarxa per a multisite que replica la configuració del plugin Vigilante des del site principal a la resta de sites, amb bloqueig de login unificat opcional. Complementa Vigilante; no el modifica.
+ * Version: 2.0.0
  * Vigilante compat: 2.8.0
  * Author: Albert Calzada (communikt)
  * Author URI: https://communikt.com
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Constants del plugin.
  */
-define( 'VIGSYNC_VERSION', '1.0.1' );
+define( 'VIGSYNC_VERSION', '2.0.0' );
 define( 'VIGSYNC_FILE', __FILE__ );
 define( 'VIGSYNC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'VIGSYNC_URL', plugin_dir_url( __FILE__ ) );
@@ -81,9 +81,12 @@ function vigsync_load_plugin() {
 	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-settings.php';
 	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-detector.php';
 	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-sync.php';
-	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-login-redirect.php';
+	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-login-guard.php';
 	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-network-admin.php';
 	require_once VIGSYNC_INCLUDES_DIR . 'class-vigsync-plugin.php';
+
+	// Migració d'opcions entre versions (idempotent).
+	Vigsync_Settings::maybe_upgrade();
 
 	// Inicialitza l'actualitzador automàtic (GitHub Releases via PUC), si està disponible.
 	vigsync_init_updater();

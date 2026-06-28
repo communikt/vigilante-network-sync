@@ -23,6 +23,16 @@ class Vigsync_Settings {
 	const OPTION_NAME = 'vigsync_settings';
 
 	/**
+	 * Versió de l'esquema de dades del plugin (per a migracions d'opcions).
+	 */
+	const DB_VERSION = 2;
+
+	/**
+	 * Nom de l'opció de xarxa que desa la versió de l'esquema instal·lada.
+	 */
+	const DB_VERSION_OPTION = 'vigsync_db_version';
+
+	/**
 	 * Retorna els valors per defecte de la configuració.
 	 *
 	 * @return array
@@ -30,13 +40,44 @@ class Vigsync_Settings {
 	public static function get_defaults() {
 		return array(
 			'source_site_id'               => get_main_site_id(),
-			'login_redirect_enabled'       => false,
+			'login_block_enabled'          => false,
 			'sync_ip_lists'                => false,
 			'sync_custom_login'            => true,
+			'sync_two_factor'              => false,
 			'notify_email'                 => get_site_option( 'admin_email' ),
 			'last_known_vigilante_version' => '',
 			'last_sync'                    => array(),
 		);
+	}
+
+	/**
+	 * Migració d'opcions entre versions de l'esquema (idempotent).
+	 *
+	 * v2: el mode "redirect de login" es substitueix pel mode "bloqueig de login".
+	 * Es migra el valor de la clau antiga `login_redirect_enabled` a la nova
+	 * `login_block_enabled` i s'elimina la clau obsoleta.
+	 */
+	public static function maybe_upgrade() {
+		$installed = (int) get_site_option( self::DB_VERSION_OPTION, 0 );
+		if ( $installed >= self::DB_VERSION ) {
+			return;
+		}
+
+		$saved = get_site_option( self::OPTION_NAME, array() );
+		if ( ! is_array( $saved ) ) {
+			$saved = array();
+		}
+
+		// v1 → v2: renomena login_redirect_enabled → login_block_enabled.
+		if ( array_key_exists( 'login_redirect_enabled', $saved ) ) {
+			if ( ! array_key_exists( 'login_block_enabled', $saved ) ) {
+				$saved['login_block_enabled'] = (bool) $saved['login_redirect_enabled'];
+			}
+			unset( $saved['login_redirect_enabled'] );
+			update_site_option( self::OPTION_NAME, $saved );
+		}
+
+		update_site_option( self::DB_VERSION_OPTION, self::DB_VERSION );
 	}
 
 	/**
@@ -53,6 +94,9 @@ class Vigsync_Settings {
 
 		$merged = wp_parse_args( is_array( $existing ) ? $existing : array(), $defaults );
 		update_site_option( self::OPTION_NAME, $merged );
+
+		// Marca l'esquema actual perquè maybe_upgrade() no actuï en instal·lacions noves.
+		update_site_option( self::DB_VERSION_OPTION, self::DB_VERSION );
 	}
 
 	/**

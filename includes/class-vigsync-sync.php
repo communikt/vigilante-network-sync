@@ -21,7 +21,13 @@ class Vigsync_Sync {
 	 * Camps específics de site que NO es copien per defecte.
 	 *
 	 * Es preserva el valor existent al site destí per a aquests camps, tret que
-	 * l'opció sync_ip_lists estigui activa (per a les llistes d'IPs).
+	 * l'opció corresponent estigui activa (sync_ip_lists per a les llistes d'IPs,
+	 * sync_two_factor per a la configuració de 2FA).
+	 *
+	 * La secció `login_security.two_factor` es preserva perquè els secrets TOTP
+	 * viuen en taules per-blog (xifrats amb AUTH_KEY); copiar només el "mètode
+	 * activat" sense el secret deixaria l'usuari sense poder validar. Amb mètode
+	 * e-mail no hi ha secret, però es preserva igualment per defecte per prudència.
 	 *
 	 * Estructura: secció => llista de claus.
 	 *
@@ -29,7 +35,7 @@ class Vigsync_Sync {
 	 */
 	const SITE_SPECIFIC_FIELDS = array(
 		'firewall'      => array( 'ip_whitelist', 'ip_blacklist' ),
-		'login_security' => array( 'ip_whitelist' ),
+		'login_security' => array( 'ip_whitelist', 'two_factor' ),
 		'activity_log'  => array( 'excluded_ips' ),
 	);
 
@@ -60,8 +66,9 @@ class Vigsync_Sync {
 			return self::abort( $valid->get_error_message() );
 		}
 
-		$sync_ip_lists = (bool) Vigsync_Settings::get( 'sync_ip_lists', false );
-		$sync_login    = (bool) Vigsync_Settings::get( 'sync_custom_login', true );
+		$sync_ip_lists  = (bool) Vigsync_Settings::get( 'sync_ip_lists', false );
+		$sync_login     = (bool) Vigsync_Settings::get( 'sync_custom_login', true );
+		$sync_two_factor = (bool) Vigsync_Settings::get( 'sync_two_factor', false );
 
 		$log   = array();
 		$sites = get_sites(
@@ -81,7 +88,7 @@ class Vigsync_Sync {
 				continue;
 			}
 
-			$log[] = self::sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login );
+			$log[] = self::sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login, $sync_two_factor );
 		}
 
 		// Desa un resum del darrer sync.
@@ -103,13 +110,14 @@ class Vigsync_Sync {
 	/**
 	 * Sincronitza un únic site destí.
 	 *
-	 * @param int   $target_id     ID del site destí.
-	 * @param array $source_config Config completa del site principal.
-	 * @param bool  $sync_ip_lists Si s'han de copiar també les llistes d'IPs.
-	 * @param bool  $sync_login    Si s'ha de copiar el slug de custom-login.
+	 * @param int   $target_id      ID del site destí.
+	 * @param array $source_config  Config completa del site principal.
+	 * @param bool  $sync_ip_lists  Si s'han de copiar també les llistes d'IPs.
+	 * @param bool  $sync_login     Si s'ha de copiar el slug de custom-login.
+	 * @param bool  $sync_two_factor Si s'ha de copiar la configuració de 2FA.
 	 * @return array Entrada de log d'aquest site.
 	 */
-	private static function sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login ) {
+	private static function sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login, $sync_two_factor ) {
 		$site   = get_site( $target_id );
 		$label  = $site ? untrailingslashit( $site->domain . $site->path ) : (string) $target_id;
 		$result = array(
@@ -126,7 +134,7 @@ class Vigsync_Sync {
 				$existing = array();
 			}
 
-			$payload = self::build_payload( $source_config, $existing, $sync_ip_lists, $sync_login );
+			$payload = self::build_payload( $source_config, $existing, $sync_ip_lists, $sync_login, $sync_two_factor );
 
 			// Si el contingut és idèntic, update_option retorna false; ho tractem com "omès".
 			if ( $payload === $existing ) {
@@ -160,21 +168,28 @@ class Vigsync_Sync {
 	 * Parteix de la config del principal i hi reinjecta els camps específics de
 	 * site que s'han de preservar del destí.
 	 *
-	 * @param array $source        Config del principal.
-	 * @param array $existing      Config actual del destí.
-	 * @param bool  $sync_ip_lists Si es copien les llistes d'IPs.
-	 * @param bool  $sync_login    Si es copia el slug de custom-login.
+	 * @param array $source         Config del principal.
+	 * @param array $existing       Config actual del destí.
+	 * @param bool  $sync_ip_lists  Si es copien les llistes d'IPs.
+	 * @param bool  $sync_login     Si es copia el slug de custom-login.
+	 * @param bool  $sync_two_factor Si es copia la configuració de 2FA.
 	 * @return array
 	 */
-	private static function build_payload( $source, $existing, $sync_ip_lists, $sync_login ) {
+	private static function build_payload( $source, $existing, $sync_ip_lists, $sync_login, $sync_two_factor ) {
 		$payload = $source;
 
-		// Preserva els camps específics de site (excepte IPs si s'ha demanat copiar-les).
+		// Preserva els camps específics de site, tret que s'hagi demanat copiar-los.
 		foreach ( self::SITE_SPECIFIC_FIELDS as $section => $keys ) {
 			foreach ( $keys as $key ) {
-				$is_ip_list = self::is_ip_list_field( $key );
+				// Decideix si aquest camp es copia del principal o es preserva del destí.
+				$copy_from_source = false;
+				if ( self::is_ip_list_field( $key ) ) {
+					$copy_from_source = $sync_ip_lists;
+				} elseif ( 'two_factor' === $key ) {
+					$copy_from_source = $sync_two_factor;
+				}
 
-				if ( $is_ip_list && $sync_ip_lists ) {
+				if ( $copy_from_source ) {
 					// Es copia del principal: no fem res (ja ve dins $payload).
 					continue;
 				}

@@ -12,7 +12,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-// Només té sentit en multisite, que és on s'emmagatzema l'opció de xarxa.
+// Només té sentit en multisite, que és on s'emmagatzemen les opcions de xarxa.
 if ( is_multisite() ) {
 	delete_site_option( 'vigsync_settings' );
+	delete_site_option( 'vigsync_db_version' );
 }

@@ -3,6 +3,8 @@
 /.github         export-ignore
 /.gitignore      export-ignore
 /.gitattributes  export-ignore
+/tests           export-ignore
+/docs            export-ignore
 
 # Normalitza finals de línia.
 * text=auto

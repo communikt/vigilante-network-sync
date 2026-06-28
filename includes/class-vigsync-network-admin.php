@@ -119,25 +119,34 @@ class Vigsync_Network_Admin {
 	private function save_settings() {
 		$source_id = isset( $_POST['source_site_id'] ) ? absint( wp_unslash( $_POST['source_site_id'] ) ) : get_main_site_id();
 
-		// El redirect només es pot activar si el principal té custom-login.
-		$redirect_requested = ! empty( $_POST['login_redirect_enabled'] );
-		$redirect_enabled   = $redirect_requested && Vigsync_Detector::is_custom_login_enabled_on_source();
+		// El bloqueig només es pot activar si el principal té custom-login i la
+		// xarxa és en subdirectori (cookie d'auth compartida; en subdomini deixaria
+		// l'admin fora dels wp-admin dels subsites).
+		$block_requested = ! empty( $_POST['login_block_enabled'] );
+		$block_enabled   = $block_requested
+			&& Vigsync_Detector::is_custom_login_enabled_on_source()
+			&& ! is_subdomain_install();
 
 		$email = isset( $_POST['notify_email'] ) ? sanitize_email( wp_unslash( $_POST['notify_email'] ) ) : '';
 
 		Vigsync_Settings::update(
 			array(
-				'source_site_id'         => $source_id,
-				'login_redirect_enabled' => $redirect_enabled,
-				'sync_ip_lists'          => ! empty( $_POST['sync_ip_lists'] ),
-				'sync_custom_login'      => ! empty( $_POST['sync_custom_login'] ),
-				'notify_email'           => $email,
+				'source_site_id'      => $source_id,
+				'login_block_enabled' => $block_enabled,
+				'sync_ip_lists'       => ! empty( $_POST['sync_ip_lists'] ),
+				'sync_custom_login'   => ! empty( $_POST['sync_custom_login'] ),
+				'sync_two_factor'     => ! empty( $_POST['sync_two_factor'] ),
+				'notify_email'        => $email,
 			)
 		);
 
 		$message = __( 'Configuració desada.', 'vigilante-network-sync' );
-		if ( $redirect_requested && ! $redirect_enabled ) {
-			$message .= ' ' . __( 'Nota: el redirect de login no s\'ha activat perquè el site principal no té el custom-login de Vigilante configurat.', 'vigilante-network-sync' );
+		if ( $block_requested && ! $block_enabled ) {
+			if ( is_subdomain_install() ) {
+				$message .= ' ' . __( 'Nota: el bloqueig de login no s\'ha activat perquè la xarxa és de subdominis (la cookie d\'autenticació no es comparteix i et deixaria fora dels subsites).', 'vigilante-network-sync' );
+			} else {
+				$message .= ' ' . __( 'Nota: el bloqueig de login no s\'ha activat perquè el site principal no té el custom-login de Vigilante configurat.', 'vigilante-network-sync' );
+			}
 		}
 
 		$this->action_result = array(
@@ -183,7 +192,7 @@ class Vigsync_Network_Admin {
 		if ( $newer ) {
 			$lines[] = sprintf(
 				/* translators: 1: versió de Vigilante instal·lada, 2: versió validada */
-				__( 'La versió de Vigilante instal·lada (%1$s) és més nova que la validada per aquesta versió de Vigilante Network Sync (%2$s). Revisa la compatibilitat abans de confiar-hi la sincronització i el redirect.', 'vigilante-network-sync' ),
+				__( 'La versió de Vigilante instal·lada (%1$s) és més nova que la validada per aquesta versió de Vigilante Network Sync (%2$s). Revisa la compatibilitat abans de confiar-hi la sincronització i el bloqueig de login.', 'vigilante-network-sync' ),
 				esc_html( $current ),
 				esc_html( Vigsync_Detector::compat_vigilante_version() )
 			);
@@ -222,7 +231,7 @@ class Vigsync_Network_Admin {
 
 		$body = sprintf(
 			/* translators: 1: versió nova de Vigilante, 2: versió validada, 3: URL de la pàgina */
-			__( "S'ha detectat un canvi a Vigilante (versió actual: %1\$s; validada per Vigilante Network Sync: %2\$s).\n\nRevisa la compatibilitat de la sincronització i del redirect de login abans de confiar-hi:\n%3\$s", 'vigilante-network-sync' ),
+			__( "S'ha detectat un canvi a Vigilante (versió actual: %1\$s; validada per Vigilante Network Sync: %2\$s).\n\nRevisa la compatibilitat de la sincronització i del bloqueig de login abans de confiar-hi:\n%3\$s", 'vigilante-network-sync' ),
 			$current,
 			Vigsync_Detector::compat_vigilante_version(),
 			network_admin_url( 'settings.php?page=' . self::PAGE_SLUG )
