@@ -12,8 +12,45 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
-### Por hacer
-- Prueba end-to-end en un multisite real (sync + bloqueo de login con sesión cerrada).
+_Sin cambios pendientes._
+
+## [2.0.1] - 2026-07-04
+
+Versión de mantenimiento: **validación de compatibilidad con Vigilante 2.9.2**. Sin cambios
+funcionales ni de esquema en este plugin.
+
+### Cambiado
+- Cabecera `Vigilante compat: 2.8.0` → **`2.9.2`**. Esto silencia el aviso del «vigilante de
+  versión» (aviso en Network Admin + email) que aparecía al detectar que Vigilante era más
+  nuevo que la versión validada. El aviso era solo informativo: **nunca desactivó el bloqueo
+  de login ni la sincronización**.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.9.2.** No requiere cambios de código. Se verificaron
+  los cuatro puntos de acoplamiento con Vigilante:
+  - **Validación de esquema** (`Vigsync_Detector::validate_schema`): las claves exigidas
+    (`modules`, `login_security`, `firewall`, `login_security.custom_login_url`) siguen
+    presentes → el sync no se aborta.
+  - **Motor de sync** (copia completa + preservación por sitio): las secciones nuevas de 2.9.x
+    se replican automáticamente y Vigilante rellena los valores por defecto que falten con
+    `array_merge_deep`.
+  - **Bloqueo de login** (`Vigsync_Login_Guard`): es autocontenido (replica las exclusiones y
+    el 404 de Vigilante, solo depende de `VIGILANTE_VERSION` y del slug de custom-login, y
+    engancha `login_init` del core). El texto del 404 sigue siendo idéntico al de Vigilante
+    2.9.2 (`The page you are looking for does not exist.` / `404 Not Found`), por lo que los
+    subsitios siguen siendo indistinguibles.
+  - **Campos preservados por sitio** (listas de IPs, `login_security.two_factor`,
+    `security_headers.csp.report_uri`, `login_security.custom_login_url`): todos siguen en las
+    mismas rutas.
+- **No se añaden nuevas opciones de sincronización.** Los cambios de Vigilante 2.8.0 → 2.9.2 se
+  limitan al escáner de integridad de ficheros (menos falsos positivos con temas legítimos,
+  CRLF/BOM, verificación tras actualizar, SHA-256, exclusión de `.css` por defecto): son
+  cambios de comportamiento del escáner, no de esquema ni de login. Los campos nuevos del
+  esquema (p. ej. `firewall.trusted_proxy_header` y las exclusiones de `file_integrity`) son
+  **uniformes en toda la red** en un multisite en subdirectorio (mismo dominio/servidor/proxy),
+  así que copiarlos del sitio principal es lo correcto y no necesitan preservación por sitio.
+
+## [2.0.0] - 2026-06-28
 
 ## [2.0.0] - 2026-06-28
 
@@ -97,7 +134,8 @@ Primera versión. Plugin de red para multisite que complementa Vigilante.
 - Validado contra **Vigilante 2.8.0**.
 - Requiere WordPress multisite 6.2+ y PHP 7.4+.
 
-[Sin publicar]: https://github.com/communikt/vigilante-network-sync/compare/v2.0.0...HEAD
+[Sin publicar]: https://github.com/communikt/vigilante-network-sync/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/communikt/vigilante-network-sync/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/communikt/vigilante-network-sync/compare/v1.0.1...v2.0.0
 [1.0.1]: https://github.com/communikt/vigilante-network-sync/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/communikt/vigilante-network-sync/releases/tag/v1.0.0

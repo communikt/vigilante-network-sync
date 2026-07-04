@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -97,6 +97,13 @@ casilla para copiar también las listas de IPs.
 
 == Changelog ==
 
+= 2.0.1 - 2026-07-04 =
+* Mantenimiento: **validado contra Vigilante 2.9.2** (sin cambios de código). Cabecera
+  `Vigilante compat` actualizada a 2.9.2, lo que silencia el aviso informativo del vigilante
+  de versión.
+* Los cambios de Vigilante 2.9.x se limitan al escáner de integridad de ficheros; no afectan
+  ni al esquema de opciones ni al bloqueo de login. No hacen falta nuevas opciones de sync.
+
 = 2.0.0 - 2026-06-28 =
 * **Breaking:** el redirect de login se sustituye por un **bloqueo** en los subsitios. El
   redirect revelaba el slug secreto (`subsite/wp-admin` → `principal/slug/`); ahora los
@@ -127,6 +134,10 @@ casilla para copiar también las listas de IPs.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.1 =
+Actualización de mantenimiento: valida la compatibilidad con Vigilante 2.9.2 y silencia el
+aviso de versión. Sin cambios funcionales.
 
 = 2.0.0 =
 Cambio importante: el redirect de login (que revelaba el slug) se sustituye por un bloqueo
