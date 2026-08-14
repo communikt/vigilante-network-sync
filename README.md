@@ -30,6 +30,10 @@ no tiene panel de red; este plugin añade esa capa que le falta:
 2. En **Network Admin → Plugins**, activa el plugin **en red** (Network Activate).
 3. Ve a **Network Admin → Configuración → Vigilante Sync**.
 
+> Para montar una red **desde cero** (Vigilante incluido) en el orden correcto y con las
+> verificaciones que evitan quedarse fuera, sigue la guía paso a paso
+> [`docs/INSTALACION-MULTISITE.md`](docs/INSTALACION-MULTISITE.md) del repositorio.
+
 ## Uso
 
 1. **Sitio principal:** elige el sitio del que se copiará la configuración (por
@@ -89,6 +93,9 @@ Por defecto **no** se sobrescriben los campos específicos de cada sitio:
   Esto desactiva el bloqueo sin tocar la base de datos (también se acepta el antiguo
   `VIGSYNC_DISABLE_REDIRECT`). Y como es un plugin normal, siempre puedes
   **desactivarlo o borrarlo** para recuperar el acceso.
+
+- **Guía completa de recuperación** (kill-switch → WP-CLI → FTP):
+  [`docs/RECUPERACION-EMERGENCIA.md`](docs/RECUPERACION-EMERGENCIA.md) del repositorio.
 
 ## Actualizaciones automáticas (GitHub + Plugin Update Checker)
 
