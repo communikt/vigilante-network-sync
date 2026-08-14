@@ -14,6 +14,47 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.2] - 2026-08-14
+
+Versión de mantenimiento: **validación de compatibilidad con Vigilante 2.9.5** (2.9.3, 2.9.4 y
+2.9.5). Sin cambios funcionales ni de esquema en este plugin.
+
+### Cambiado
+- Cabecera `Vigilante compat: 2.9.2` → **`2.9.5`**, que silencia el aviso informativo del
+  «vigilante de versión» (aviso en Network Admin + email). Ese aviso nunca desactivó nada.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.9.5.** No requiere cambios de código. Verificado:
+  - **`includes/class-settings.php` es byte a byte idéntico al de 2.9.2** → el esquema de
+    `vigilante_options` no ha cambiado: `Vigsync_Detector::validate_schema` sigue encontrando
+    `modules`, `login_security`, `firewall` y `login_security.custom_login_url`, y no hay claves
+    nuevas que añadir a la lista de campos preservados por sitio.
+  - **Motor de sync:** Vigilante no engancha nada a `update_option`/`updated_option` de
+    `vigilante_options` (solo el registro de actividad escucha `updated_option` de forma
+    genérica), así que escribir la opción desde un subsitio no dispara reescrituras de
+    `.htaccess`. La reescritura de reglas de 2.9.3 (whitelists de IP/User-Agent aplicadas
+    también a nivel `.htaccess`) se dispara **solo al guardar desde el admin de un sitio**.
+    Se mantiene la recomendación de configurar el hardening en el sitio principal, ya que
+    `.htaccess` es único y compartido en toda la red.
+  - **`vigilante_login_rules_version`** sigue existiendo y con el mismo uso, por lo que el
+    `delete_option()` que hace el sync en cada destino sigue siendo válido.
+  - **Bloqueo de login (`Vigsync_Login_Guard`):** Vigilante sigue enganchando
+    `block_wp_login_access()` en `login_init` con prioridad 1 (nuestro guard va en prioridad 0)
+    y su lista de acciones permitidas (`postpass`, `logout`, `rp`, `resetpass`, `confirmaction`,
+    `lostpassword`, `retrievepassword`) no ha cambiado. El texto del 404 sigue siendo el mismo
+    (`The page you are looking for does not exist.` / `404 Not Found`).
+- **Cambios de 2.9.3/2.9.4 que refuerzan el modelo de bloqueo** (a favor, no en contra):
+  - 2.9.3 cierra dos fugas del slug secreto que nuestro guard ya evitaba en los subsitios:
+    `/login` (que el core convertía en un 302 a la URL oculta) y el `POST` anónimo a
+    `/wp-admin`. Ahora ambos devuelven 404 también en el sitio principal.
+  - 2.9.4 corrige el ocultamiento de `wp-admin`, que se comparaba con `strpos()` sobre toda la
+    `REQUEST_URI`: ya no convierte en 404 las URLs de front-end que solo *contienen*
+    «wp-admin» (`/wp-admin-tips/`, `/?redirect_to=/wp-admin/`). Usa `is_admin()` y la ruta de
+    `admin_url()`, que en multisite de subdirectorio es correcta por sitio.
+  - 2.9.4 deja de renderizar la plantilla 404 del tema desde `init` (regresión de 2.9.3 con
+    coste de un render completo por petición bloqueada). No afecta a nuestro guard, que corre
+    en `login_init` y usa `wp_die()`.
+
 ## [2.0.1] - 2026-07-04
 
 Versión de mantenimiento: **validación de compatibilidad con Vigilante 2.9.2**. Sin cambios

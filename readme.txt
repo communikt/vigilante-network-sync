@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -97,6 +97,16 @@ casilla para copiar también las listas de IPs.
 
 == Changelog ==
 
+= 2.0.2 - 2026-08-14 =
+* Mantenimiento: **validado contra Vigilante 2.9.5** (sin cambios de código). Cabecera
+  `Vigilante compat` actualizada a 2.9.5, lo que silencia el aviso informativo del vigilante
+  de versión.
+* `class-settings.php` de Vigilante es idéntico al de 2.9.2: el esquema de `vigilante_options`
+  no cambia y no hacen falta nuevas opciones de sync ni campos preservados.
+* Los cambios de 2.9.3/2.9.4 refuerzan el modelo de bloqueo: cierran la fuga del slug por
+  `/login` y por el POST anónimo a `/wp-admin`, y corrigen los falsos 404 en URLs de front-end
+  que solo contenían «wp-admin».
+
 = 2.0.1 - 2026-07-04 =
 * Mantenimiento: **validado contra Vigilante 2.9.2** (sin cambios de código). Cabecera
   `Vigilante compat` actualizada a 2.9.2, lo que silencia el aviso informativo del vigilante
@@ -134,6 +144,10 @@ casilla para copiar también las listas de IPs.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.2 =
+Actualización de mantenimiento: valida la compatibilidad con Vigilante 2.9.5 y silencia el
+aviso de versión. Sin cambios funcionales.
 
 = 2.0.1 =
 Actualización de mantenimiento: valida la compatibilidad con Vigilante 2.9.2 y silencia el
