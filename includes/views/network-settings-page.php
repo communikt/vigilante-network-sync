@@ -139,13 +139,16 @@ $sites  = get_sites(
 					</label><br>
 					<label>
 						<input type="checkbox" name="sync_ip_lists" value="1" <?php checked( ! empty( $settings['sync_ip_lists'] ) ); ?>>
-						<?php esc_html_e( 'Copiar també les llistes d\'IPs (whitelist/blacklist)', 'vigilante-network-sync' ); ?>
+						<?php esc_html_e( 'Copiar també les llistes d\'IPs i User-Agents (whitelist/blacklist)', 'vigilante-network-sync' ); ?>
 					</label><br>
 					<label>
 						<input type="checkbox" name="sync_two_factor" value="1" <?php checked( ! empty( $settings['sync_two_factor'] ) ); ?>>
 						<?php esc_html_e( 'Copiar també la configuració de 2FA (només recomanat si el mètode és e-mail)', 'vigilante-network-sync' ); ?>
 					</label>
-					<p class="description"><?php esc_html_e( 'Per defecte es preserven les llistes d\'IPs, la CSP report-uri i la configuració de 2FA de cada site (camps específics per site). Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos. Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
+					<?php if ( Vigsync_Detector::get_shared_file_settings() ) : ?>
+						<p class="description"><?php esc_html_e( 'Vigilante 2.9.8 o superior detectat: els ajustos que només s\'escriuen a wp-config.php i al .htaccess (capçaleres de seguretat, hardening de WP i les proteccions de fitxers) ja NO es copien als subsites. Aquests dos fitxers són únics a tota la xarxa i només els escriu el site principal, així que copiar-hi res no tindria cap efecte.', 'vigilante-network-sync' ); ?></p>
+					<?php endif; ?>
 				</td>
 			</tr>
 			<?php $block_eligible = $custom_login_on && ! is_subdomain_install(); ?>

@@ -14,6 +14,72 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.3] - 2026-08-20
+
+Vigilante **2.9.8** trae soporte real de multisite (sin panel de red, pero con las decisiones
+que afectan a toda la red centralizadas en el sitio principal). Esta versión **alinea el
+sincronizador con ese modelo**: deja de copiar lo que Vigilante ya gestiona en red y afina qué
+se preserva de cada sitio.
+
+### Cambiado
+- **El sync ya no copia los ajustes de fichero compartido.** Desde Vigilante 2.9.8,
+  `wp-config.php` y el `.htaccess` de la raíz solo los escribe el sitio principal
+  (`Vigilante_Settings::can_write_shared_files()`), y los subsitios ven esas secciones como
+  solo lectura mostrando los valores del principal. Copiarlas allí no tenía ningún efecto en
+  runtime y dejaba en el subsitio una copia local que contradecía el fichero real. Ahora se
+  preservan del destino: toda la sección `security_headers`, la parte de `wp_hardening` que
+  escribe constantes (`disallow_file_edit`, `force_ssl_admin`, `wp_debug`…) y la mitad
+  `.htaccess` de `firewall` (`protect_wp_config`, `limit_http_methods`,
+  `disable_directory_browsing`…). La lista se lee **de Vigilante**
+  (`Vigilante_Settings::get_shared_file_settings()`), no está copiada aquí, así que no puede
+  quedar desfasada. Con Vigilante anterior a 2.9.8 el método no existe y el comportamiento es
+  el de siempre.
+- **Campos preservados por sitio ampliados.** Se añaden `firewall.ua_whitelist` y
+  `ua_blacklist` (gobernados por la misma casilla que las listas de IPs, que pasa a llamarse
+  «listas de IPs y User-Agents») y `email.additional_recipients`, que se preserva siempre:
+  quién recibe los avisos de un sitio es decisión de ese sitio, a menudo del cliente.
+- **Red de seguridad para versiones futuras de Vigilante.** Cualquier campo que Vigilante
+  declare en `Vigilante_Settings::get_user_data_keys()` y que este plugin no conozca se
+  **preserva por defecto**, en lugar de copiarse sin criterio. Las excepciones conscientes
+  están en `Vigsync_Sync::NETWORK_UNIFORM_FIELDS`: `firewall.trusted_proxy_header` y
+  `country_blocking`, `user_security.insecure_usernames` y las exclusiones de `file_integrity`.
+  Esos sí se propagan porque en una red **en subdirectorio** son uniformes por definición — el
+  proxy es el mismo, la política es la misma y el escaneo de integridad recorre el **mismo
+  sistema de ficheros**. La lista de Vigilante responde a otra pregunta que la nuestra («qué no
+  debe borrar un botón de restaurar» frente a «qué es propio de cada sitio de una red»), por eso
+  se adopta como red de seguridad y no al pie de la letra.
+- Aviso en la pantalla de red, visible solo con Vigilante 2.9.8+, explicando qué ha dejado de
+  copiarse y por qué.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.9.8** (incluye 2.9.6 y 2.9.7). El esquema de
+  `vigilante_options` **sí cambia** esta vez, pero de forma compatible: desaparecen
+  `firewall.block_http_1_0`, `firewall.protect_htaccess`, `user_security.warn_existing_insecure`
+  y el par `login_security.disable_xmlrpc` / `disable_xmlrpc_pingback` (XML-RPC pasa a
+  `wp_hardening.xmlrpc_mode` en 2.9.7), y aparece `security_headers.upgrade_insecure_requests`.
+  Como el sync copia secciones enteras, la migración se propaga sola.
+- `Vigsync_Detector::validate_schema()` sigue siendo válida: `modules`, `firewall`,
+  `login_security` y `login_security.custom_login_url` siguen existiendo.
+- **El bloqueo de login sigue siendo necesario y no tiene sustituto:** `class-login-security.php`
+  de Vigilante 2.9.8 no contiene una sola referencia a multisite. Vigilante mantiene
+  `block_wp_login_access()` en `login_init` con prioridad 1, la misma lista de acciones
+  permitidas y el mismo texto de 404, así que `Vigsync_Login_Guard` sigue alineado.
+- Vigilante sigue sin enganchar nada a `updated_option` de `vigilante_options`, de modo que
+  escribir la opción desde un subsitio no dispara reescrituras de ficheros.
+- Los cambios de defaults de 2.9.8 (HTTPS, política de contraseñas, expiración, sesiones) solo
+  afectan a instalaciones nuevas; el sync copia el valor del principal en cualquier caso.
+
+### Notas
+- `login_security.custom_login_url` se sigue copiando por defecto (casilla propia) y, cuando no
+  se sincroniza, se deja **siempre declarado** en el destino (cadena vacía si allí no había
+  valor) en vez de eliminar la clave: es el campo del que depende el acceso y conviene que el
+  valor efectivo esté escrito y no dependa de un *merge* de defaults.
+- Tests ampliados a **37 asserts** (antes 19), con un *stub* de Vigilante 2.9.8 declarado dentro
+  de un condicional para poder ejercitar también el camino de compatibilidad con versiones
+  anteriores — PHP registra las clases de primer nivel antes de ejecutar el fichero, así que una
+  declaración normal habría hecho invisible ese camino.
+- Traducciones ca/es/en regeneradas y completas (78/78).
+
 ## [2.0.2] - 2026-08-14
 
 Versión de mantenimiento: **validación de compatibilidad con Vigilante 2.9.5** (2.9.3, 2.9.4 y

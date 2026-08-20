@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.2
+Stable tag: 2.0.3
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -68,9 +68,11 @@ sitio principal y configuran el 2FA una sola vez; la cookie de red cubre el rest
 
 = ¿Qué pasa con .htaccess y wp-config.php? =
 
-Son únicos y compartidos en la red. Configura cabeceras, firewall y hardening en el **sitio
-principal** (que es quien escribe esos archivos); el sync replica el resto de la
-configuración de PHP-runtime.
+Son únicos y compartidos en la red. Desde **Vigilante 2.9.8** eso ya lo impone el propio
+Vigilante: solo el sitio principal (y un administrador de red) puede escribirlos, y los
+subsitios ven esas secciones en modo solo lectura con los valores del principal. En
+consecuencia, este plugin **ya no copia** esos ajustes a los subsitios: no tendrían efecto.
+El sync replica el resto, la configuración de PHP-runtime, que sí es por sitio.
 
 = ¿Y si me quedo fuera por el bloqueo de login? =
 
@@ -92,10 +94,30 @@ y avisa** en redes de subdominio. La sincronización de configuración sí funci
 
 = ¿Sobrescribe las listas de IPs de cada sitio? =
 
-No por defecto. Las listas de IPs y la CSP `report-uri` se preservan por sitio; hay una
-casilla para copiar también las listas de IPs.
+No por defecto. Se preservan por sitio las listas de IPs y de User-Agents, la CSP
+`report-uri`, la configuración de 2FA y los destinatarios adicionales de avisos; hay una
+casilla para copiar también las listas. Además, cualquier campo que Vigilante declare como
+dato del usuario del sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.3 - 2026-08-20 =
+* **Alineado con el soporte multisite de Vigilante 2.9.8.** El sync deja de copiar a los
+  subsitios los ajustes que solo se escriben en `wp-config.php` y en el `.htaccess`
+  (cabeceras de seguridad, hardening de WP y protecciones de ficheros): esos ficheros son
+  únicos en la red y solo los escribe el sitio principal, así que copiarlos no hacía nada y
+  dejaba en el subsitio una copia local que contradecía el fichero real.
+* La lista de esos ajustes se lee de Vigilante (`get_shared_file_settings()`), no está
+  duplicada aquí, así que no puede quedar desfasada. Con Vigilante anterior a 2.9.8 el
+  comportamiento es el de siempre.
+* **Más campos preservados por sitio:** listas de User-Agents del firewall (junto a las de
+  IPs) y destinatarios adicionales de avisos. Cualquier campo nuevo que Vigilante declare
+  como dato del usuario se preserva por defecto, salvo los que en una red son uniformes por
+  definición (cabecera de proxy, bloqueo por país, nombres de usuario inseguros y
+  exclusiones del escaneo de integridad), que se siguen propagando.
+* Validado contra Vigilante 2.9.8: el esquema cambia (XML-RPC pasa a `wp_hardening`), pero
+  la migración se propaga sola. El bloqueo de login sigue siendo necesario: Vigilante 2.9.8
+  no incluye ningún login unificado para multisite.
 
 = 2.0.2 - 2026-08-14 =
 * Mantenimiento: **validado contra Vigilante 2.9.5** (sin cambios de código). Cabecera
@@ -144,6 +166,11 @@ casilla para copiar también las listas de IPs.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.3 =
+Alinea el sincronizador con el soporte multisite de Vigilante 2.9.8: deja de copiar los
+ajustes de wp-config.php y .htaccess (que ahora solo escribe el sitio principal) y preserva
+más campos propios de cada sitio. Recomendada si actualizas a Vigilante 2.9.8.
 
 = 2.0.2 =
 Actualización de mantenimiento: valida la compatibilidad con Vigilante 2.9.5 y silencia el

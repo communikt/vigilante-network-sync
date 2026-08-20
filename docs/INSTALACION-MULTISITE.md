@@ -23,12 +23,17 @@ de login al final**. Cada bloque termina con una comprobación.
 
 2. **Configura todo en el sitio principal**, no en los subsitios: módulos, firewall,
    cabeceras de seguridad, hardening. Motivo: `.htaccess` y `wp-config.php` son ficheros
-   **únicos y compartidos** por toda la red, y en multisite manda «el último que guarda».
-   Deja que sea siempre el principal quien los escriba.
+   **únicos y compartidos** por toda la red.
 
-   > Desde Vigilante 2.9.3 las whitelists de IP y User-Agent del firewall también reescriben
-   > reglas en `.htaccess` al guardar desde el admin de un sitio. Una razón más para tocar el
-   > firewall solo desde el principal.
+   > **Con Vigilante 2.9.8 o superior esto ya no depende de tu disciplina:** el propio
+   > Vigilante solo permite escribir esos dos ficheros desde el sitio principal y a un
+   > administrador de red (`Vigilante_Settings::can_write_shared_files()`). En los subsitios
+   > esas secciones aparecen en **solo lectura**, mostrando los valores del principal. Antes de
+   > 2.9.8 mandaba «el último que guardaba», y bastaba con que un admin de un subsitio pulsara
+   > Guardar sin tocar nada para que una constante desapareciera de `wp-config.php`.
+   >
+   > Desde 2.9.3 las whitelists de IP y User-Agent del firewall también reescriben reglas en
+   > `.htaccess` al guardar. Una razón más para tocar el firewall solo desde el principal.
 
 3. **Activa el custom-login en el principal:** *Vigilante → Login Security → URL de acceso
    personalizada*. Elige el slug y **apúntalo antes de guardar**. La URL resultante es
@@ -61,7 +66,7 @@ de login al final**. Cada bloque termina con una comprobación.
 
 9. **Casillas de sincronización:**
    - ✅ **Sincronizar el slug de custom-login** — déjala marcada (es el valor por defecto).
-   - ❌ **Copiar las listas de IPs** — desmarcada. Las listas son específicas de cada sitio.
+   - ❌ **Copiar las listas de IPs y User-Agents** — desmarcada. Son específicas de cada sitio.
    - ❌ **Copiar la configuración de 2FA** — desmarcada. Copiar el «método activado» sin el
      secreto TOTP (que vive en una tabla por blog) dejaría al usuario **sin poder validar**.
      Solo tiene sentido marcarla si el método es **e-mail**.
@@ -90,10 +95,16 @@ de login al final**. Cada bloque termina con una comprobación.
   automática (es deliberado: escribir en todos los sitios debe ser una acción consciente).
 
 - **Campos que NO se propagan** (se preservan por sitio):
-  - Listas de IPs: `firewall.ip_whitelist` / `ip_blacklist`, `login_security.ip_whitelist`,
-    `activity_log.excluded_ips`.
+  - Listas de IPs y User-Agents: `firewall.ip_whitelist` / `ip_blacklist` / `ua_whitelist` /
+    `ua_blacklist`, `login_security.ip_whitelist`, `activity_log.excluded_ips`.
   - `login_security.two_factor` (secretos TOTP por blog).
+  - `email.additional_recipients` (quién recibe los avisos de cada sitio).
   - `security_headers.csp.report_uri` (URL absoluta por sitio) — **siempre** se preserva.
+
+- **Ajustes que ya no se copian** (con Vigilante 2.9.8+): todo lo que solo se escribe en
+  `wp-config.php` y `.htaccess` — la sección `security_headers` entera, la parte de
+  `wp_hardening` que escribe constantes y las protecciones de ficheros de `firewall`. Los
+  gobierna el sitio principal para toda la red, así que copiarlos a un subsitio no haría nada.
 
   > En multisite los **IDs de usuario son globales**, así que las exclusiones por usuario y
   > los roles sí se replican correctamente.

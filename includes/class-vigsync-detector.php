@@ -228,4 +228,57 @@ class Vigsync_Detector {
 
 		return version_compare( self::vigilante_version(), $compat, '>' );
 	}
+
+	/**
+	 * Ajustos de Vigilante que només tenen efecte en fitxers compartits per la xarxa.
+	 *
+	 * Des de Vigilante 2.9.8, `wp-config.php` i el `.htaccess` de l'arrel només els
+	 * escriu el site principal (`Vigilante_Settings::can_write_shared_files()`), i els
+	 * subsites veuen aquestes seccions com a només-lectura, pintant els valors del
+	 * principal. Per tant copiar-hi aquests camps no fa res: el que mana és el fitxer,
+	 * que és únic. El sincronitzador els preserva del destí per no deixar-hi una còpia
+	 * local que contradiu el fitxer real.
+	 *
+	 * Format: secció => true (tota la secció) | llista de claus.
+	 *
+	 * Amb Vigilante anterior a 2.9.8 el mètode no existeix i es retorna un array buit,
+	 * que manté el comportament de sempre (copiar-ho tot).
+	 *
+	 * @return array<string,true|string[]>
+	 */
+	public static function get_shared_file_settings() {
+		if ( ! class_exists( 'Vigilante_Settings' ) || ! method_exists( 'Vigilante_Settings', 'get_shared_file_settings' ) ) {
+			return array();
+		}
+
+		$map = Vigilante_Settings::get_shared_file_settings();
+
+		return is_array( $map ) ? $map : array();
+	}
+
+	/**
+	 * Camps que Vigilante considera "dades escrites per l'usuari" del site.
+	 *
+	 * Des de 2.9.8, Vigilante manté a `Vigilante_Settings::get_user_data_keys()` la
+	 * llista de camps que els seus botons de restauració mai esborren (llistes d'IP i
+	 * User-Agent, slug de login, 2FA, exclusions d'escaneig, destinataris d'avisos...).
+	 *
+	 * La fem servir com a XARXA DE SEGURETAT del sincronitzador: qualsevol camp que
+	 * Vigilante declari com a dada de l'usuari i que nosaltres no coneguem es preserva
+	 * per defecte, de manera que una versió futura de Vigilante amb camps nous no ens
+	 * agafa copiant-los sense pensar. Les excepcions conscients (camps que en una
+	 * xarxa de subdirectori són uniformes i SÍ volem propagar) són a
+	 * `Vigsync_Sync::NETWORK_UNIFORM_FIELDS`.
+	 *
+	 * @return array<string,string[]>
+	 */
+	public static function get_user_data_keys() {
+		if ( ! class_exists( 'Vigilante_Settings' ) || ! method_exists( 'Vigilante_Settings', 'get_user_data_keys' ) ) {
+			return array();
+		}
+
+		$keys = Vigilante_Settings::get_user_data_keys();
+
+		return is_array( $keys ) ? $keys : array();
+	}
 }

@@ -4,6 +4,7 @@
  *
  * Exercita la lògica que no depèn de WordPress mitjançant stubs i reflexió:
  *  - Vigsync_Sync::build_payload()  (preservació de camps per-site, inclòs 2FA)
+ *  - Vigsync_Sync::build_payload()  amb Vigilante 2.9.8+ (ajustos de fitxer compartit)
  *  - Vigsync_Login_Guard::should_block_request()  (decisió de bloqueig)
  *
  * Ús:  php tests/test-logic.php
@@ -14,6 +15,7 @@
 // Les classes tenen una guarda `if ( ! defined( 'ABSPATH' ) ) exit;`.
 define( 'ABSPATH', __DIR__ . '/' );
 
+require_once __DIR__ . '/../includes/class-vigsync-detector.php';
 require_once __DIR__ . '/../includes/class-vigsync-sync.php';
 require_once __DIR__ . '/../includes/class-vigsync-login-guard.php';
 
@@ -77,7 +79,10 @@ $source = array(
 		'ip_blacklist' => array( '3.3.3.3' ),
 	),
 	'activity_log'     => array( 'excluded_ips' => array( '4.4.4.4' ) ),
-	'security_headers' => array( 'csp' => array( 'report_uri' => 'https://principal/csp' ) ),
+	'security_headers' => array(
+		'hsts' => array( 'enabled' => true ),
+		'csp'  => array( 'report_uri' => 'https://principal/csp' ),
+	),
 );
 
 echo "build_payload():\n";
@@ -159,6 +164,156 @@ $payload_d2 = vigsync_call_private(
 	array( $source, $existing_d, true, true, false )
 );
 vigsync_assert( array( '2.2.2.2' ), $payload_d2['firewall']['ip_whitelist'], '(d2) firewall ip_whitelist copiada del principal (sync_ip_lists=true)' );
+
+// ---------------------------------------------------------------------------
+// build_payload() amb Vigilante 2.9.8+: ajustos de fitxer compartit i xarxa de
+// seguretat de get_user_data_keys(). Fins aquí la classe Vigilante_Settings no
+// existia, així que s'ha exercitat el camí de compatibilitat (Vigilante < 2.9.8).
+// ---------------------------------------------------------------------------
+
+vigsync_assert(
+	true,
+	$payload_a['security_headers']['hsts']['enabled'],
+	'(e) Vigilante < 2.9.8: security_headers segueix copiant-se del principal'
+);
+vigsync_assert(
+	'https://subsite/csp',
+	$payload_a['security_headers']['csp']['report_uri'],
+	'(e) Vigilante < 2.9.8: només el CSP report_uri es preserva'
+);
+
+/*
+ * Stub de Vigilante 2.9.8: reprodueix les dues llistes que publica el plugin.
+ *
+ * Es declara DINS d'un condicional a propòsit: PHP registra les declaracions de
+ * classe de primer nivell en compilar el fitxer, abans d'executar cap línia, i
+ * llavors els casos (a)-(e) de sobre ja veurien Vigilante_Settings definida i no
+ * exercitarien mai el camí de compatibilitat amb Vigilante < 2.9.8. Dins d'un
+ * bloc condicional la classe només existeix a partir d'aquí.
+ */
+if ( ! class_exists( 'Vigilante_Settings' ) ) {
+	/**
+	 * Stub de la classe de configuració de Vigilante 2.9.8.
+	 */
+	class Vigilante_Settings {
+
+		/**
+		 * Ajustos que només tenen efecte en fitxers compartits per la xarxa.
+		 *
+		 * @return array
+		 */
+		public static function get_shared_file_settings() {
+			return array(
+				'security_headers' => true,
+				'wp_hardening'     => array( 'disallow_file_edit', 'disallow_file_mods', 'force_ssl_admin', 'force_ssl_login', 'wp_debug', 'disable_wp_cron' ),
+				'firewall'         => array( 'disable_directory_browsing', 'protect_wp_config', 'protect_wp_includes', 'protect_uploads_php', 'protect_sensitive_files', 'protect_wp_cron', 'limit_http_methods' ),
+			);
+		}
+
+		/**
+		 * Camps que Vigilante considera dades escrites per l'usuari del site.
+		 *
+		 * @return array
+		 */
+		public static function get_user_data_keys() {
+			return array(
+				'firewall'       => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'trusted_proxy_header', 'country_blocking' ),
+				'login_security' => array( 'ip_whitelist', 'custom_login_url', 'two_factor', 'camp_futur_desconegut' ),
+				'user_security'  => array( 'insecure_usernames' ),
+				'file_integrity' => array( 'excluded_paths', 'excluded_extensions', 'suspicious_patterns' ),
+				'email'          => array( 'additional_recipients' ),
+			);
+		}
+	}
+}
+
+
+echo "build_payload() amb Vigilante 2.9.8+:\n";
+
+$source_98 = array(
+	'modules'          => array( 'login_security' => 1 ),
+	'login_security'   => array(
+		'custom_login_url'      => 'acceso',
+		'max_login_attempts'    => 5,
+		'camp_futur_desconegut' => 'DEL-PRINCIPAL',
+	),
+	'firewall'         => array(
+		'ua_whitelist'         => array( 'UA-PRINCIPAL' ),
+		'trusted_proxy_header' => 'HTTP_CF_CONNECTING_IP',
+		'protect_wp_config'    => true,
+		'rate_limiting'        => array( 'enabled' => true, 'max_requests' => 120 ),
+	),
+	'security_headers' => array(
+		'hsts' => array( 'enabled' => true ),
+		'csp'  => array( 'report_uri' => 'https://principal/csp' ),
+	),
+	'wp_hardening'     => array(
+		'force_ssl_admin' => true,
+		'xmlrpc_mode'     => 'pingback',
+	),
+	'user_security'    => array( 'insecure_usernames' => array( 'admin', 'root' ) ),
+	'file_integrity'   => array( 'excluded_paths' => array( '/wp-content/cache' ) ),
+	'email'            => array( 'additional_recipients' => array( 'avisos@principal.com' ) ),
+);
+
+$existing_98 = array(
+	'login_security'   => array(
+		'camp_futur_desconegut' => 'DEL-SUBSITE',
+	),
+	'firewall'         => array(
+		'ua_whitelist'         => array( 'UA-SUBSITE' ),
+		'trusted_proxy_header' => '',
+		'protect_wp_config'    => false,
+	),
+	'security_headers' => array(
+		'hsts' => array( 'enabled' => false ),
+		'csp'  => array( 'report_uri' => 'https://subsite/csp' ),
+	),
+	'wp_hardening'     => array(
+		'force_ssl_admin' => false,
+		'xmlrpc_mode'     => 'full',
+	),
+	'user_security'    => array( 'insecure_usernames' => array() ),
+	'file_integrity'   => array( 'excluded_paths' => array() ),
+	'email'            => array( 'additional_recipients' => array( 'cliente@subsite.com' ) ),
+);
+
+$p98 = vigsync_call_private(
+	'Vigsync_Sync',
+	'build_payload',
+	array( $source_98, $existing_98, false, true, false )
+);
+
+// Fitxers compartits: es preserva el que hi ha al destí (no s'hi empeny res).
+vigsync_assert( false, $p98['security_headers']['hsts']['enabled'], '(f) security_headers: secció sencera preservada del destí' );
+vigsync_assert( 'https://subsite/csp', $p98['security_headers']['csp']['report_uri'], '(f) CSP report_uri segueix sent el del destí' );
+vigsync_assert( false, $p98['firewall']['protect_wp_config'], '(f) firewall.protect_wp_config (.htaccess) preservat del destí' );
+vigsync_assert( false, $p98['wp_hardening']['force_ssl_admin'], '(f) wp_hardening.force_ssl_admin (wp-config) preservat del destí' );
+
+// La resta de la mateixa secció SÍ es propaga (és PHP-runtime, per-site).
+vigsync_assert( array( 'enabled' => true, 'max_requests' => 120 ), $p98['firewall']['rate_limiting'], '(g) firewall.rate_limiting (PHP) es copia del principal' );
+vigsync_assert( 'pingback', $p98['wp_hardening']['xmlrpc_mode'], '(g) wp_hardening.xmlrpc_mode es copia del principal' );
+vigsync_assert( 5, $p98['login_security']['max_login_attempts'], '(g) login_security.max_login_attempts es copia del principal' );
+
+// Camps uniformes a la xarxa: es propaguen tot i ser "user data" per a Vigilante.
+vigsync_assert( 'HTTP_CF_CONNECTING_IP', $p98['firewall']['trusted_proxy_header'], '(h) trusted_proxy_header es propaga (uniforme a la xarxa)' );
+vigsync_assert( array( 'admin', 'root' ), $p98['user_security']['insecure_usernames'], '(h) insecure_usernames es propaga (política global)' );
+vigsync_assert( array( '/wp-content/cache' ), $p98['file_integrity']['excluded_paths'], '(h) file_integrity.excluded_paths es propaga (mateix filesystem)' );
+
+// Camps propis del site: preservats.
+vigsync_assert( array( 'UA-SUBSITE' ), $p98['firewall']['ua_whitelist'], '(i) ua_whitelist preservada del destí' );
+vigsync_assert( array( 'cliente@subsite.com' ), $p98['email']['additional_recipients'], '(i) email.additional_recipients preservats del destí' );
+vigsync_assert( 'DEL-SUBSITE', $p98['login_security']['camp_futur_desconegut'], '(i) camp nou declarat per Vigilante i desconegut per nosaltres → preservat' );
+vigsync_assert( 'acceso', $p98['login_security']['custom_login_url'], '(i) custom-login es copia igualment (sync_login=true)' );
+
+// Amb les caselles actives, les llistes sí es copien.
+$p98b = vigsync_call_private(
+	'Vigsync_Sync',
+	'build_payload',
+	array( $source_98, $existing_98, true, false, false )
+);
+vigsync_assert( array( 'UA-PRINCIPAL' ), $p98b['firewall']['ua_whitelist'], '(j) ua_whitelist copiada del principal (sync_ip_lists=true)' );
+vigsync_assert( '', $p98b['login_security']['custom_login_url'], '(j) custom-login preservat del destí (sync_login=false, destí sense valor → buit)' );
 
 // ---------------------------------------------------------------------------
 // should_block_request(): decisió de bloqueig de login al subsite.

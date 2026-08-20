@@ -45,15 +45,38 @@ no tiene panel de red; este plugin añade esa capa que le falta:
    *custom-login* de Vigilante. Los subsitios responderán 404 a cualquier intento de login
    (sin revelar el slug); el login real solo funciona en el principal.
 
-### Campos que se preservan por sitio
+### Qué NO se copia a los subsitios
 
-Por defecto **no** se sobrescriben los campos específicos de cada sitio:
+**1. Ajustes de fichero compartido** (con Vigilante 2.9.8 o superior). `wp-config.php` y el
+`.htaccess` de la raíz son ficheros únicos de toda la red y desde 2.9.8 **solo los escribe el
+sitio principal**; los subsitios ven esas secciones en modo solo lectura, mostrando los valores
+del principal. Copiarlas no tendría efecto, así que el sync las preserva del destino:
 
-- Listas de IPs (`firewall.ip_whitelist/ip_blacklist`, `login_security.ip_whitelist`,
-  `activity_log.excluded_ips`) — marca la casilla para copiarlas también.
+- toda la sección `security_headers`,
+- la parte de `wp_hardening` que escribe constantes (`disallow_file_edit`, `force_ssl_admin`,
+  `wp_debug`…),
+- la mitad `.htaccess` de `firewall` (`protect_wp_config`, `limit_http_methods`,
+  `disable_directory_browsing`…).
+
+La lista se lee de Vigilante (`Vigilante_Settings::get_shared_file_settings()`), no está
+duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de siempre.
+
+**2. Campos propios de cada sitio:**
+
+- Listas de IPs y de User-Agents (`firewall.ip_whitelist/ip_blacklist/ua_whitelist/ua_blacklist`,
+  `login_security.ip_whitelist`, `activity_log.excluded_ips`) — marca la casilla para copiarlas.
 - **Configuración de 2FA** (`login_security.two_factor`) — los secretos TOTP son por sitio;
   marca la casilla para copiarla solo si el método es **e-mail**.
+- `email.additional_recipients` — quién recibe los avisos de un sitio es decisión de ese sitio.
 - `security_headers.csp.report_uri` (URL absoluta por sitio) — siempre se preserva.
+- Cualquier campo que Vigilante declare en `get_user_data_keys()` y que este plugin no conozca:
+  se preserva por defecto, para que una versión futura de Vigilante no nos pille copiando
+  campos nuevos sin criterio.
+
+**Excepciones que sí se propagan** aunque Vigilante las trate como datos del usuario, porque en
+una red **en subdirectorio** son uniformes por definición: `firewall.trusted_proxy_header` y
+`country_blocking`, `user_security.insecure_usernames` y las exclusiones de `file_integrity`
+(el escaneo recorre el mismo sistema de ficheros en todos los sitios).
 
 > En multisite los **IDs de usuario son globales**, así que las exclusiones por
 > usuario y los roles sí se replican correctamente.
@@ -68,9 +91,10 @@ Por defecto **no** se sobrescriben los campos específicos de cada sitio:
 - **Modo independiente:** mismo slug en todos los sitios (vía sync) y bloqueo
   desactivado. Cada sitio oculta su propio login; el 2FA se configura por sitio (las
   tablas TOTP de Vigilante son por sitio; **no** marques copiar la config de 2FA con TOTP).
-- **`.htaccess` / `wp-config.php`** son únicos y compartidos en la red: deja que el
-  **sitio principal** sea quien los escriba (cabeceras, firewall, hardening) y el sync
-  replica solo la configuración de PHP-runtime al resto.
+- **`.htaccess` / `wp-config.php`** son únicos y compartidos en la red: configúralos desde el
+  **sitio principal**. Con Vigilante 2.9.8 o superior esto ya no es solo una recomendación —
+  el propio Vigilante rechaza esas escrituras desde cualquier otro sitio— y el sync replica
+  al resto únicamente la configuración de PHP-runtime.
 
 ## Resiliencia y recuperación
 
