@@ -14,6 +14,53 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.4] - 2026-08-23
+
+Mantenimiento para **Vigilante 2.9.9**. Revisados los cuatro puntos de acoplamiento y el
+bloqueo de login temprano que estrena Vigilante: **no hay incompatibilidad y el comportamiento
+del sincronizador no cambia**. Lo que sí se hace es dejar de describir un esquema que ya no
+existe y aplicar a las listas de IPs el mismo criterio de validez que Vigilante.
+
+### Cambiado
+- **`NETWORK_UNIFORM_FIELDS` se limpia de campos muertos.** Vigilante 2.9.9 retira del esquema
+  once ajustes que ningún código leía, dos de ellos en nuestra lista de excepciones:
+  `firewall.country_blocking` y `file_integrity.suspicious_patterns`. Como esa lista solo se
+  consulta contra lo que devuelve `Vigilante_Settings::get_user_data_keys()`, y de ahí también
+  han desaparecido, mantenerlas era código muerto que además describía un esquema irreal.
+  Ningún efecto funcional.
+- **Las listas de IPs copiadas se depuran con el validador de Vigilante.** Desde 2.9.9,
+  Vigilante rechaza al guardar lo que nunca podrá coincidir (`999.999.999.999/99`, una palabra
+  suelta) en lugar de almacenarlo en silencio en una lista de seguridad. Como este plugin
+  escribe `vigilante_options` directamente, sin pasar por ese formulario, ahora usa
+  `Vigilante_IP_Utils::split_list()` — el método **de Vigilante**, para que el criterio no pueda
+  divergir — sobre `firewall.ip_whitelist` / `ip_blacklist`, `login_security.ip_whitelist` y
+  `activity_log.excluded_ips`. Solo actúa cuando la casilla de copiar las listas está activa: si
+  no lo está, las listas del destino se preservan y no se tocan. Lo descartado **se nombra en el
+  log del sync**, etiquetado con su sección y clave, para que no desaparezca en silencio: una
+  lista de IPs es un mecanismo de acceso. Las listas de User-Agent no se tocan nunca, y con
+  Vigilante anterior a 2.9.9 el validador no existe y el payload se copia como siempre.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.9.9.** `Vigilante_Settings::get_shared_file_settings()`
+  es **idéntica** a la de 2.9.8, y las claves que exige `validate_schema()` (`modules`,
+  `login_security`, `firewall` y `login_security.custom_login_url`) siguen todas en su sitio. Los
+  once ajustes retirados se borran también de las configuraciones ya guardadas, mediante una
+  migración que corre en el `admin_init` **de cada sitio**: un subsitio que nadie visite no se
+  limpiaría nunca por sí solo, pero el sync propaga la configuración ya limpia del principal y lo
+  deja al día sin esperar a esa visita.
+- **El nuevo bloqueo temprano de `wp-admin` no colisiona con `Vigsync_Login_Guard`.** Vigilante
+  2.9.9 responde 404 a un GET anónimo sin cookie de sesión ya en `plugins_loaded` prioridad 1,
+  antes de cargar el tema y el resto de plugins, y solo si el sitio tiene `custom_login_url`. En
+  un subsitio con el slug sincronizado (lo normal: la casilla viene activada), `/subsitio/wp-admin/`
+  da el mismo 404 que antes, pero más barato; sin slug, la petición sigue el camino de siempre
+  hasta `login_init`, donde responde nuestro guard. El SSO por cookie de red no se ve afectado:
+  Vigilante solo comprueba la **presencia** de la cookie, que en una red en subdirectorio tiene
+  path `/`.
+- El fix de 2.9.9 por el que una IP en la lista blanca del firewall dejaba de exponer el
+  formulario de login (y de entregar el slug secreto en la cabecera `Location`) **refuerza** el
+  modelo de bloqueo de esta v2.x sin pedir ningún cambio: las listas de IPs se preservan por
+  sitio, así que cada subsitio conserva la suya.
+
 ## [2.0.3] - 2026-08-20
 
 Vigilante **2.9.8** trae soporte real de multisite (sin panel de red, pero con las decisiones

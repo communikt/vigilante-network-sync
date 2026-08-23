@@ -59,6 +59,28 @@ function vigsync_call_private( $class, $method, array $args ) {
 	return $ref->invokeArgs( null, $args );
 }
 
+/**
+ * Crida strip_unmatchable_ips() (privat i amb argument per referència).
+ *
+ * ReflectionMethod::invokeArgs() passa els arguments per valor, així que no serveix
+ * per a un mètode que modifica el payload in situ: cal una closure lligada a la
+ * classe, que sí en conserva la referència.
+ *
+ * @param array $payload Payload a esporgar (per referència).
+ * @return string[] Entrades descartades.
+ */
+function vigsync_strip_ips( array &$payload ) {
+	$call = Closure::bind(
+		static function ( &$p ) {
+			return Vigsync_Sync::strip_unmatchable_ips( $p );
+		},
+		null,
+		Vigsync_Sync::class
+	);
+
+	return $call( $payload );
+}
+
 // ---------------------------------------------------------------------------
 // build_payload(): preservació de camps per-site (IPs, CSP, 2FA, custom-login).
 // ---------------------------------------------------------------------------
@@ -216,11 +238,15 @@ if ( ! class_exists( 'Vigilante_Settings' ) ) {
 		 * @return array
 		 */
 		public static function get_user_data_keys() {
+			// Llista real de Vigilante 2.9.9: 'country_blocking' i 'suspicious_patterns'
+			// van desaparèixer de l'esquema (eren ajustos que cap codi llegia).
+			// 'camp_futur_desconegut' no hi és a Vigilante: el posem per exercitar la
+			// xarxa de seguretat davant d'un camp que encara no coneixem.
 			return array(
-				'firewall'       => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'trusted_proxy_header', 'country_blocking' ),
+				'firewall'       => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'trusted_proxy_header' ),
 				'login_security' => array( 'ip_whitelist', 'custom_login_url', 'two_factor', 'camp_futur_desconegut' ),
 				'user_security'  => array( 'insecure_usernames' ),
-				'file_integrity' => array( 'excluded_paths', 'excluded_extensions', 'suspicious_patterns' ),
+				'file_integrity' => array( 'excluded_paths', 'excluded_extensions' ),
 				'email'          => array( 'additional_recipients' ),
 			);
 		}
@@ -314,6 +340,120 @@ $p98b = vigsync_call_private(
 );
 vigsync_assert( array( 'UA-PRINCIPAL' ), $p98b['firewall']['ua_whitelist'], '(j) ua_whitelist copiada del principal (sync_ip_lists=true)' );
 vigsync_assert( '', $p98b['login_security']['custom_login_url'], '(j) custom-login preservat del destí (sync_login=false, destí sense valor → buit)' );
+
+// ---------------------------------------------------------------------------
+// strip_unmatchable_ips(): esporgada de les llistes d'IPs amb el validador de
+// Vigilante 2.9.9. Cal exercitar PRIMER el camí sense validador (Vigilante < 2.9.9),
+// per la mateixa raó de hoisting que amb Vigilante_Settings.
+// ---------------------------------------------------------------------------
+
+echo "strip_unmatchable_ips():\n";
+
+$ips_brutes = array(
+	'firewall'       => array(
+		'ip_whitelist' => array( '8.8.8.8', '999.999.999.999/99', '10.0.0.0/8', 'paraula', '2001:db8::/32' ),
+		'ip_blacklist' => array( '192.168.1.*' ),
+		'ua_whitelist' => array( 'no-soc-una-ip' ),
+	),
+	'login_security' => array( 'ip_whitelist' => array( '1.2.3.4', '' ) ),
+	'activity_log'   => array( 'excluded_ips' => array( 'localhost' ) ),
+);
+
+$sense_validador = $ips_brutes;
+$rebutjades      = vigsync_strip_ips( $sense_validador );
+vigsync_assert( array(), $rebutjades, '(k) Vigilante < 2.9.9: sense validador no es rebutja res' );
+vigsync_assert( $ips_brutes, $sense_validador, '(k) Vigilante < 2.9.9: el payload no es toca gens' );
+
+/*
+ * Stub de Vigilante_IP_Utils 2.9.9, declarat dins d'un condicional pel mateix
+ * motiu que Vigilante_Settings: si no, els asserts (k) de sobre ja el veurien
+ * definit i el camí de compatibilitat no es provaria mai.
+ */
+if ( ! class_exists( 'Vigilante_IP_Utils' ) ) {
+	/**
+	 * Stub del validador d'IPs de Vigilante 2.9.9.
+	 */
+	class Vigilante_IP_Utils {
+
+		/**
+		 * Separa una llista en entrades que poden coincidir i les que no.
+		 *
+		 * @param array|string $list Llista d'entrades.
+		 * @return array
+		 */
+		public static function split_list( $list ) {
+			$valid    = array();
+			$rejected = array();
+
+			foreach ( (array) $list as $entry ) {
+				$entry = trim( (string) $entry );
+				if ( '' === $entry ) {
+					continue;
+				}
+				if ( self::is_valid_pattern( $entry ) ) {
+					$valid[] = $entry;
+				} else {
+					$rejected[] = $entry;
+				}
+			}
+
+			return array(
+				'valid'    => array_values( array_unique( $valid ) ),
+				'rejected' => array_values( array_unique( $rejected ) ),
+			);
+		}
+
+		/**
+		 * Reprodueix el criteri de Vigilante: adreça exacta, CIDR o comodí.
+		 *
+		 * @param string $pattern Entrada a validar.
+		 * @return bool
+		 */
+		private static function is_valid_pattern( $pattern ) {
+			if ( filter_var( $pattern, FILTER_VALIDATE_IP ) ) {
+				return true;
+			}
+
+			if ( false !== strpos( $pattern, '/' ) ) {
+				list( $subnet, $bits ) = array_pad( explode( '/', $pattern, 2 ), 2, '' );
+				if ( '' === $bits || ! ctype_digit( $bits ) || ! filter_var( $subnet, FILTER_VALIDATE_IP ) ) {
+					return false;
+				}
+				$packed = inet_pton( $subnet );
+				return ( false !== $packed && (int) $bits <= strlen( $packed ) * 8 );
+			}
+
+			if ( false !== strpos( $pattern, '*' ) ) {
+				$bare = str_replace( '*', '', $pattern );
+				return ( '' !== $bare && (bool) preg_match( '/^[0-9a-f:.]+$/i', $bare ) );
+			}
+
+			return false;
+		}
+	}
+}
+
+$amb_validador = $ips_brutes;
+$rebutjades    = vigsync_strip_ips( $amb_validador );
+
+vigsync_assert(
+	array( '8.8.8.8', '10.0.0.0/8', '2001:db8::/32' ),
+	$amb_validador['firewall']['ip_whitelist'],
+	'(l) es conserven adreça exacta, CIDR IPv4 i CIDR IPv6'
+);
+vigsync_assert(
+	array(
+		'firewall.ip_whitelist: 999.999.999.999/99',
+		'firewall.ip_whitelist: paraula',
+		'activity_log.excluded_ips: localhost',
+	),
+	$rebutjades,
+	'(l) les entrades impossibles es reporten etiquetades amb secció i clau'
+);
+vigsync_assert( array( '192.168.1.*' ), $amb_validador['firewall']['ip_blacklist'], '(l) el comodí IPv4 és vàlid i es conserva' );
+vigsync_assert( array( 'no-soc-una-ip' ), $amb_validador['firewall']['ua_whitelist'], '(l) les llistes de User-Agent no es toquen mai' );
+vigsync_assert( array( '1.2.3.4' ), $amb_validador['login_security']['ip_whitelist'], '(l) login_security.ip_whitelist esporgada (buit descartat sense avís)' );
+vigsync_assert( array(), $amb_validador['activity_log']['excluded_ips'], '(l) activity_log.excluded_ips buidada de l\'entrada impossible' );
 
 // ---------------------------------------------------------------------------
 // should_block_request(): decisió de bloqueig de login al subsite.

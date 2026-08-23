@@ -6,10 +6,10 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Vigilante Network Sync 2.0.3\n"
+"Project-Id-Version: Vigilante Network Sync 2.0.4\n"
 "Report-Msgid-Bugs-To: https://github.com/communikt/vigilante-network-sync/"
 "issues\n"
-"POT-Creation-Date: 2026-08-20 08:09+0200\n"
+"POT-Creation-Date: 2026-08-23 08:55+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -22,6 +22,7 @@ msgstr ""
 msgid "La configuració de Vigilante al site principal és buida o inexistent."
 msgstr ""
 
+#. translators: %s: nom de la clau de configuració que falta
 #: includes/class-vigsync-detector.php:132
 #, php-format
 msgid ""
@@ -76,11 +77,13 @@ msgid ""
 "custom-login de Vigilante configurat."
 msgstr ""
 
+#. translators: 1: versió antiga, 2: versió nova
 #: includes/class-vigsync-network-admin.php:187
 #, php-format
 msgid "Vigilante ha canviat de la versió %1$s a la %2$s."
 msgstr ""
 
+#. translators: 1: versió de Vigilante instal·lada, 2: versió validada
 #: includes/class-vigsync-network-admin.php:195
 #, php-format
 msgid ""
@@ -97,11 +100,13 @@ msgstr ""
 msgid "Revisar a la pàgina de Vigilante Sync"
 msgstr ""
 
+#. translators: %s: nom de la xarxa
 #: includes/class-vigsync-network-admin.php:228
 #, php-format
 msgid "[%s] Vigilante ha canviat de versió"
 msgstr ""
 
+#. translators: 1: versió nova de Vigilante, 2: versió validada, 3: URL de la pàgina
 #: includes/class-vigsync-network-admin.php:234
 #, php-format
 msgid ""
@@ -121,6 +126,7 @@ msgstr ""
 msgid "Vigilante Network Sync: bloqueig de login desactivat per seguretat"
 msgstr ""
 
+#. translators: %s: missatge d'error de validació
 #: includes/class-vigsync-plugin.php:84
 #, php-format
 msgid ""
@@ -129,25 +135,32 @@ msgid ""
 "Revisa la configuració."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:89
+#: includes/class-vigsync-sync.php:94
 msgid "Vigilante no està actiu en aquesta xarxa. No s'ha sincronitzat res."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:135
+#. translators: 1: nombre de sites correctes, 2: nombre total de sites destí
+#: includes/class-vigsync-sync.php:140
 #, php-format
 msgid ""
 "Sincronització completada: %1$d de %2$d sites actualitzats correctament."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:175
+#: includes/class-vigsync-sync.php:184
 msgid "Ja estava sincronitzat (sense canvis)."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:182
+#: includes/class-vigsync-sync.php:191
 msgid "Configuració sincronitzada."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:185
+#. translators: %s: llista d'entrades d'IP descartades, separades per comes
+#: includes/class-vigsync-sync.php:196
+#, php-format
+msgid "Entrades d'IP descartades perquè no poden coincidir mai: %s."
+msgstr ""
+
+#: includes/class-vigsync-sync.php:202
 msgid "update_option ha retornat false (possible error d'escriptura)."
 msgstr ""
 
@@ -354,6 +367,7 @@ msgstr ""
 msgid "Compatibilitat amb Vigilante"
 msgstr ""
 
+#. translators: 1: versió validada, 2: versió coneguda
 #: includes/views/network-settings-page.php:230
 #, php-format
 msgid ""

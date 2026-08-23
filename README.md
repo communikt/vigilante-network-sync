@@ -65,6 +65,9 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
 
 - Listas de IPs y de User-Agents (`firewall.ip_whitelist/ip_blacklist/ua_whitelist/ua_blacklist`,
   `login_security.ip_whitelist`, `activity_log.excluded_ips`) — marca la casilla para copiarlas.
+  Al copiarlas, las entradas de **IP** que nunca podrían coincidir (`999.999.999.999/99`, una
+  palabra suelta…) se descartan con el mismo validador que usa Vigilante 2.9.9 al guardar, y
+  se nombran en el log del sync. Las de User-Agent no se tocan.
 - **Configuración de 2FA** (`login_security.two_factor`) — los secretos TOTP son por sitio;
   marca la casilla para copiarla solo si el método es **e-mail**.
 - `email.additional_recipients` — quién recibe los avisos de un sitio es decisión de ese sitio.
@@ -74,9 +77,9 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
   campos nuevos sin criterio.
 
 **Excepciones que sí se propagan** aunque Vigilante las trate como datos del usuario, porque en
-una red **en subdirectorio** son uniformes por definición: `firewall.trusted_proxy_header` y
-`country_blocking`, `user_security.insecure_usernames` y las exclusiones de `file_integrity`
-(el escaneo recorre el mismo sistema de ficheros en todos los sitios).
+una red **en subdirectorio** son uniformes por definición: `firewall.trusted_proxy_header`,
+`user_security.insecure_usernames` y las exclusiones de `file_integrity` (el escaneo recorre el
+mismo sistema de ficheros en todos los sitios).
 
 > En multisite los **IDs de usuario son globales**, así que las exclusiones por
 > usuario y los roles sí se replican correctamente.

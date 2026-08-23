@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.3
+Stable tag: 2.0.4
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -96,10 +96,26 @@ y avisa** en redes de subdominio. La sincronización de configuración sí funci
 
 No por defecto. Se preservan por sitio las listas de IPs y de User-Agents, la CSP
 `report-uri`, la configuración de 2FA y los destinatarios adicionales de avisos; hay una
-casilla para copiar también las listas. Además, cualquier campo que Vigilante declare como
-dato del usuario del sitio y que este plugin no conozca se preserva por defecto.
+casilla para copiar también las listas. Al copiarlas, las entradas de IP que nunca podrían
+coincidir se descartan con el mismo validador que usa Vigilante 2.9.9 al guardar y se nombran
+en el log del sync. Además, cualquier campo que Vigilante declare como dato del usuario del
+sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.4 - 2026-08-23 =
+* **Revisado y validado contra Vigilante 2.9.9**, sin cambios de comportamiento. La lista de
+  ajustes de fichero compartido es idéntica a la de 2.9.8 y el esquema que exige el
+  sincronizador sigue intacto.
+* Vigilante 2.9.9 retira once ajustes que ningún código leía; dos estaban en la lista de
+  excepciones de este plugin (`firewall.country_blocking` y `file_integrity.suspicious_patterns`)
+  y se eliminan por ser ya código muerto.
+* Al copiar las listas de IPs, las entradas que nunca podrían coincidir se descartan con el
+  validador de Vigilante 2.9.9 (`Vigilante_IP_Utils::split_list()`) y se nombran en el log del
+  sync, en lugar de propagarse a los subsitios. Solo actúa si la casilla de copiar las listas
+  está marcada; las listas de User-Agent no se tocan.
+* El nuevo bloqueo temprano de `wp-admin` de Vigilante 2.9.9 no colisiona con el bloqueo de
+  login de este plugin, y el SSO por cookie de red sigue intacto.
 
 = 2.0.3 - 2026-08-20 =
 * **Alineado con el soporte multisite de Vigilante 2.9.8.** El sync deja de copiar a los
@@ -166,6 +182,10 @@ dato del usuario del sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.4 =
+Mantenimiento para Vigilante 2.9.9: sin cambios de comportamiento. Limpia dos campos que
+Vigilante ha retirado del esquema y depura las entradas de IP imposibles al copiar las listas.
 
 = 2.0.3 =
 Alinea el sincronizador con el soporte multisite de Vigilante 2.9.8: deja de copiar los

@@ -281,4 +281,38 @@ class Vigsync_Detector {
 
 		return is_array( $keys ) ? $keys : array();
 	}
+
+	/**
+	 * Separa una llista d'IPs en entrades que Vigilante pot fer coincidir i la resta.
+	 *
+	 * Des de 2.9.9, Vigilante valida el que s'escriu a les caixes d'IPs amb
+	 * `Vigilante_IP_Utils::split_list()`: accepta adreces exactes, rangs CIDR i
+	 * comodins (IPv4 i IPv6) i rebutja la resta, en comptes de desar en silenci
+	 * entrades que no coincidiran mai i que fan patxoca en una llista de seguretat.
+	 *
+	 * Nosaltres escrivim `vigilante_options` directament, sense passar pel formulari
+	 * de Vigilante, així que fem servir el seu mateix validador per no propagar als
+	 * subsites entrades que el principal ja no acceptaria. Es reutilitza el mètode de
+	 * Vigilante a posta: si el criteri canvia, canvia als dos llocs alhora.
+	 *
+	 * @param array|string $list Llista d'entrades (o text amb salts de línia).
+	 * @return array|null Array amb claus `valid` i `rejected`, o null si aquesta
+	 *                    versió de Vigilante no ofereix el validador (< 2.9.9).
+	 */
+	public static function split_ip_list( $list ) {
+		if ( ! class_exists( 'Vigilante_IP_Utils' ) || ! method_exists( 'Vigilante_IP_Utils', 'split_list' ) ) {
+			return null;
+		}
+
+		$split = Vigilante_IP_Utils::split_list( $list );
+
+		if ( ! is_array( $split ) || ! isset( $split['valid'], $split['rejected'] ) ) {
+			return null;
+		}
+
+		return array(
+			'valid'    => (array) $split['valid'],
+			'rejected' => (array) $split['rejected'],
+		);
+	}
 }

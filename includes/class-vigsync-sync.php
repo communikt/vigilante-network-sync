@@ -53,7 +53,6 @@ class Vigsync_Sync {
 	 * propaguen, obliguen a configurar-los site per site:
 	 *
 	 * - `firewall.trusted_proxy_header`: depèn del hosting/CDN, idèntic a tota la xarxa.
-	 * - `firewall.country_blocking`: política de seguretat, no dada local.
 	 * - `user_security.insecure_usernames`: llista de noms prohibits, política global.
 	 * - `file_integrity.*`: l'escaneig recorre el MATEIX sistema de fitxers a tots els
 	 *   sites de la xarxa, així que les exclusions han de ser necessàriament iguals.
@@ -62,14 +61,20 @@ class Vigsync_Sync {
 	 * d'esborrar un botó de restauració" vs. "què és propi de cada site d'una xarxa"),
 	 * per això no s'adopta tal qual.
 	 *
+	 * Vigilante 2.9.9 va retirar de l'esquema `firewall.country_blocking` i
+	 * `file_integrity.suspicious_patterns` (eren ajustos que cap codi llegia) i els va
+	 * treure també de `get_user_data_keys()`. Com que aquesta llista només es consulta
+	 * contra el que retorna aquell mètode, mantenir-los aquí era codi mort: s'han
+	 * eliminat perquè la llista no descrigui un esquema que ja no existeix.
+	 *
 	 * Estructura: secció => llista de claus.
 	 *
 	 * @var array
 	 */
 	const NETWORK_UNIFORM_FIELDS = array(
-		'firewall'       => array( 'trusted_proxy_header', 'country_blocking' ),
+		'firewall'       => array( 'trusted_proxy_header' ),
 		'user_security'  => array( 'insecure_usernames' ),
-		'file_integrity' => array( 'excluded_paths', 'excluded_extensions', 'suspicious_patterns' ),
+		'file_integrity' => array( 'excluded_paths', 'excluded_extensions' ),
 	);
 
 	/**
@@ -169,6 +174,10 @@ class Vigsync_Sync {
 
 			$payload = self::build_payload( $source_config, $existing, $sync_ip_lists, $sync_login, $sync_two_factor );
 
+			// Quan es copien les llistes d'IPs, s'hi apliquen les mateixes regles de
+			// validesa que Vigilante 2.9.9+ aplica al seu formulari.
+			$rejected_ips = $sync_ip_lists ? self::strip_unmatchable_ips( $payload ) : array();
+
 			// Si el contingut és idèntic, update_option retorna false; ho tractem com "omès".
 			if ( $payload === $existing ) {
 				$result['status']  = 'skipped';
@@ -180,6 +189,14 @@ class Vigsync_Sync {
 					delete_option( 'vigilante_login_rules_version' );
 					$result['status']  = 'ok';
 					$result['message'] = __( 'Configuració sincronitzada.', 'vigilante-network-sync' );
+
+					if ( $rejected_ips ) {
+						$result['message'] .= ' ' . sprintf(
+							/* translators: %s: llista d'entrades d'IP descartades, separades per comes */
+							__( 'Entrades d\'IP descartades perquè no poden coincidir mai: %s.', 'vigilante-network-sync' ),
+							implode( ', ', $rejected_ips )
+						);
+					}
 				} else {
 					$result['status']  = 'error';
 					$result['message'] = __( 'update_option ha retornat false (possible error d\'escriptura).', 'vigilante-network-sync' );
@@ -370,6 +387,63 @@ class Vigsync_Sync {
 	private static function is_network_uniform( $section, $key ) {
 		return isset( self::NETWORK_UNIFORM_FIELDS[ $section ] )
 			&& in_array( $key, self::NETWORK_UNIFORM_FIELDS[ $section ], true );
+	}
+
+	/**
+	 * Camps que contenen llistes d'adreces IP (no de User-Agents).
+	 *
+	 * Estructura: secció => llista de claus.
+	 *
+	 * @var array
+	 */
+	const IP_LIST_FIELDS = array(
+		'firewall'       => array( 'ip_whitelist', 'ip_blacklist' ),
+		'login_security' => array( 'ip_whitelist' ),
+		'activity_log'   => array( 'excluded_ips' ),
+	);
+
+	/**
+	 * Treu del payload les entrades d'IP que Vigilante no pot fer coincidir.
+	 *
+	 * Només s'aplica quan la casella de copiar les llistes està activa: si no ho està,
+	 * les llistes del destí es preserven i no som ningú per esporgar-les. Les entrades
+	 * descartades es retornen perquè quedin al log del sync i no desapareguin en
+	 * silenci: una llista d'IPs és un mecanisme d'accés i cal veure què s'hi ha tocat.
+	 *
+	 * Amb Vigilante anterior a 2.9.9 el validador no existeix i el payload no es toca.
+	 *
+	 * @param array $payload Payload en construcció (per referència).
+	 * @return string[] Entrades descartades, etiquetades amb la seva secció i clau.
+	 */
+	private static function strip_unmatchable_ips( &$payload ) {
+		$rejected = array();
+
+		foreach ( self::IP_LIST_FIELDS as $section => $keys ) {
+			foreach ( $keys as $key ) {
+				if ( ! isset( $payload[ $section ][ $key ] ) || ! is_array( $payload[ $section ][ $key ] ) ) {
+					continue;
+				}
+
+				$split = Vigsync_Detector::split_ip_list( $payload[ $section ][ $key ] );
+				if ( null === $split ) {
+					continue;
+				}
+
+				// S'assigna sempre que hi hagi diferència, no només quan hi ha
+				// entrades rebutjades: split_list() també descarta les línies buides
+				// i els duplicats, i el destí ha de quedar amb la mateixa llista que
+				// Vigilante hi desaria des del seu formulari.
+				if ( $split['valid'] !== $payload[ $section ][ $key ] ) {
+					$payload[ $section ][ $key ] = $split['valid'];
+				}
+
+				foreach ( $split['rejected'] as $entry ) {
+					$rejected[] = $section . '.' . $key . ': ' . $entry;
+				}
+			}
+		}
+
+		return $rejected;
 	}
 
 	/**
