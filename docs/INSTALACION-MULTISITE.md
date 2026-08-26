@@ -115,6 +115,16 @@ de login al final**. Cada bloque termina con una comprobación.
   de este plugin con la cabecera `Vigilante compat:` actualizada, tras revisar que el esquema
   de `vigilante_options` sigue siendo compatible.
 
+  > ⚠️ **Antes de actualizar Vigilante en una red, guarda una copia del `.htaccess` de la
+  > raíz.** Desde la 2.9.9, Vigilante reescribe su bloque del `.htaccess` una vez por versión,
+  > pero en multisite esa reescritura **no llega a aplicarse**: corre en cualquier petición,
+  > incluidas las anónimas, y en el sitio principal la comprobación de permisos falla para un
+  > visitante sin sesión, con lo que se marca como hecha sin haber escrito nada. En la 2.10.0
+  > esto importa más, porque de esa misma rama cuelga la captura de la copia del `.htaccess`
+  > en la que se apoya la recuperación de los ajustes de Cabeceras — y es **de una sola
+  > oportunidad**. Con una copia manual del fichero siempre puedes releer los valores que
+  > tenías. Es un asunto de Vigilante, no de este plugin, y está reportado a su autor.
+
 - **Actualizaciones de este plugin:** llegan por GitHub Releases vía Plugin Update Checker.
   Política recomendada: **solo notificación** (no auto-update silencioso, porque afecta al
   login) y flujo **canary** — actualizar primero en una web de pruebas, verificar que el
