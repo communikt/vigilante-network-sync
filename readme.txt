@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.4
+Stable tag: 2.0.5
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -103,6 +103,19 @@ sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
 
+= 2.0.5 - 2026-08-26 =
+* **Revisado y validado contra Vigilante 2.10.0**, sin cambios de código. `class-settings.php`
+  es byte a byte idéntico al de 2.9.9, así que el esquema de `vigilante_options` no cambia, y
+  `class-login-security.php` no se toca: el bloqueo de login sigue igual.
+* Lo nuevo de 2.10.0 (escritura verificada del `.htaccess`, historial de versiones del fichero y
+  recuperación de los ajustes de Cabeceras que borraba la migración de 2.9.8) vive en opciones
+  propias y por sitio, fuera de `vigilante_options`: el sincronizador no las toca.
+* ⚠️ Nota para redes: en multisite, la reescritura del `.htaccess` tras actualizar Vigilante
+  sigue sin aplicarse (asunto de Vigilante, ya reportado al autor), y en 2.10.0 eso también
+  impide capturar la copia del fichero en la que se apoya la recuperación de ajustes, que es de
+  una sola oportunidad. Antes de actualizar una red a 2.10.0, guarda una copia del `.htaccess`
+  del sitio principal.
+
 = 2.0.4 - 2026-08-23 =
 * **Revisado y validado contra Vigilante 2.9.9**, sin cambios de comportamiento. La lista de
   ajustes de fichero compartido es idéntica a la de 2.9.8 y el esquema que exige el
@@ -182,6 +195,10 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.5 =
+Compatibilidad validada con Vigilante 2.10.0, sin cambios de código. Si actualizas una red a
+Vigilante 2.10.0, guarda antes una copia del .htaccess del sitio principal (ver changelog).
 
 = 2.0.4 =
 Mantenimiento para Vigilante 2.9.9: sin cambios de comportamiento. Limpia dos campos que

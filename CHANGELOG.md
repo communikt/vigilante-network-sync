@@ -14,6 +14,36 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.5] - 2026-08-26
+
+Mantenimiento para **Vigilante 2.10.0**. Revisión hecha: **compatible, sin cambios de código**.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.10.0.** Prueba decisiva: `includes/class-settings.php`
+  es **byte a byte idéntico** al de 2.9.9, así que el esquema de `vigilante_options` no cambia en
+  nada, y con él tampoco `get_shared_file_settings()` ni `get_user_data_keys()`, que viven en ese
+  mismo fichero. `class-login-security.php` y `class-firewall.php` **no se tocan**: el bloqueo de
+  login de los subsitios sigue siendo el mismo mecanismo.
+- Los cambios de 2.10.0 se concentran en el `.htaccess` (escritura verificada, historial de las
+  cinco últimas versiones, bloqueo de escritura concurrente) y en un mecanismo nuevo para
+  recuperar los ajustes de Cabeceras de Seguridad que la migración de 2.9.8 borraba. Todo ello vive
+  en opciones **propias y por sitio** (`vigilante_htaccess_*`, `vigilante_server_files_*`), fuera de
+  `vigilante_options`, así que el sincronizador ni las lee ni las escribe.
+- Las tres políticas cross-origin (COOP, COEP, CORP) pasan a ser editables, pero
+  `security_headers.cross_origin_policies` **ya existía** en el esquema; además la sección
+  `security_headers` entera se preserva del destino desde la v2.0.3, por ser de fichero compartido.
+- Sube la cabecera `Vigilante compat:` a 2.10.0 para que el vigilante de versión no avise.
+
+### Nota operativa (asunto de Vigilante, no de este plugin)
+- ⚠️ En **multisite**, la reescritura del `.htaccess` tras actualizar Vigilante sigue sin aplicarse
+  (ya pasaba en 2.9.9 y no se ha corregido en 2.10.0): `maybe_sync_server_files()` corre en `init`
+  en cualquier petición, y en el sitio principal `can_write_shared_files()` acaba en
+  `current_user_can( 'manage_network_options' )`, que para un visitante anónimo es `false` — con lo
+  que se marca como hecho sin haber escrito nada. En 2.10.0 esto importa más, porque la captura de
+  la copia del `.htaccess` que alimenta la recuperación de ajustes está **detrás** de esa misma
+  rama y es de una sola oportunidad: si se quema, no se repite. **Antes de actualizar una red a
+  2.10.0, conviene guardar una copia del `.htaccess` del sitio principal.** Reportado al autor.
+
 ## [2.0.4] - 2026-08-23
 
 Mantenimiento para **Vigilante 2.9.9**. Revisados los cuatro puntos de acoplamiento y el
