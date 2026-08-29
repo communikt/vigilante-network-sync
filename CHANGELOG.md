@@ -14,6 +14,47 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.6] - 2026-08-29
+
+Mantenimiento para **Vigilante 2.10.5**. Revisión hecha sobre el diff completo 2.10.0 → 2.10.5
+(veinte ficheros): **compatible, sin cambios de código**.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.10.5.** `includes/class-settings.php` cambia en **un
+  solo bloque**, y es una adición: el método nuevo `Vigilante_Settings::owns_shared_files()`. El
+  esquema de `vigilante_options` no se toca, y con él tampoco `get_shared_file_settings()` ni
+  `get_user_data_keys()`, que viven en ese mismo fichero fuera del cambio.
+- `class-firewall.php` y `class-ip-utils.php` **ni aparecen en el diff**: son idénticos. El motor
+  de sync y la depuración de listas de IPs siguen apoyados en el mismo código.
+- `class-login-security.php` cambia también en **un solo bloque**, y es en
+  `block_hidden_admin_early()`, la vía rápida que estrenó 2.9.9. `Vigsync_Login_Guard` actúa en
+  `login_init` y no colisiona: el bloqueo de login de los subsitios sigue igual.
+- Sube la cabecera `Vigilante compat:` a 2.10.5 para que el vigilante de versión no avise.
+
+### Nota operativa (asuntos de Vigilante, no de este plugin)
+- ✅ **Corregido en Vigilante 2.10.1 el fallo del `.htaccess` en multisite** que este changelog
+  avisaba en la v2.0.5, y que se reportó a su autor desde este proyecto (acreditado en el
+  changelog de Vigilante). El arreglo separa las dos preguntas que estaban mezcladas: el método
+  nuevo `owns_shared_files()` resuelve la identidad del sitio, sin capacidad, y es el que se
+  aplica a una reescritura que Vigilante hace por su cuenta; `can_write_shared_files()` (identidad
+  **más** capacidad) queda para lo que inicia una persona desde una pantalla de ajustes.
+  `Vigilante_Htaccess_Manager::add_block()` recibe un parámetro `$automatic` y elige una u otra.
+  Además, la ventana de captura de la copia del `.htaccess` se reabre a `< 2.10.1`, de modo que
+  las redes que la quemaron en falso con la 2.10.0 la recuperan. **Ya no hace falta guardar una
+  copia manual del `.htaccess` antes de actualizar una red.**
+- ⚠️ **Vigilante 2.10.3 es una publicación de seguridad, no de mantenimiento**, y conviene
+  actualizar: corrige un XSS almacenado en la pantalla de auditoría vía cabecera User-Agent
+  (CVE-2026-81754), un salto del segundo factor —bastaba con nombrar la acción de verificación en
+  la petición— y, en multisite, una escalada por la que el administrador de un subsitio podía
+  actuar sobre un administrador de red (leer sus códigos de respaldo, apoderarse de su
+  autenticador o dejarle fuera).
+- ℹ️ **Cambio de comportamiento en multisite a partir de 2.10.3:** gestionar el segundo factor,
+  las sesiones o el reinicio de contraseña de **otro** usuario pasa a exigir la capacidad
+  `edit_user` sobre él, que en una red WordPress solo concede a los administradores de red. Un
+  administrador de subsitio pierde esas acciones incluso sobre los miembros de su propio sitio, y
+  conserva las de su propia cuenta. No afecta al sincronizador; se anota porque cambia la
+  operativa de una red.
+
 ## [2.0.5] - 2026-08-26
 
 Mantenimiento para **Vigilante 2.10.0**. Revisión hecha: **compatible, sin cambios de código**.

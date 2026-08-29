@@ -115,15 +115,16 @@ de login al final**. Cada bloque termina con una comprobación.
   de este plugin con la cabecera `Vigilante compat:` actualizada, tras revisar que el esquema
   de `vigilante_options` sigue siendo compatible.
 
-  > ⚠️ **Antes de actualizar Vigilante en una red, guarda una copia del `.htaccess` de la
-  > raíz.** Desde la 2.9.9, Vigilante reescribe su bloque del `.htaccess` una vez por versión,
-  > pero en multisite esa reescritura **no llega a aplicarse**: corre en cualquier petición,
-  > incluidas las anónimas, y en el sitio principal la comprobación de permisos falla para un
-  > visitante sin sesión, con lo que se marca como hecha sin haber escrito nada. En la 2.10.0
-  > esto importa más, porque de esa misma rama cuelga la captura de la copia del `.htaccess`
-  > en la que se apoya la recuperación de los ajustes de Cabeceras — y es **de una sola
-  > oportunidad**. Con una copia manual del fichero siempre puedes releer los valores que
-  > tenías. Es un asunto de Vigilante, no de este plugin, y está reportado a su autor.
+  > ℹ️ **Nota histórica (redes que vengan de Vigilante 2.9.9 o 2.10.0).** Entre esas dos
+  > versiones, la reescritura del bloque del `.htaccess` tras actualizar **no llegaba a
+  > aplicarse en multisite**: corría en cualquier petición, incluidas las anónimas, y la
+  > comprobación de permisos fallaba para un visitante sin sesión, con lo que el trabajo se
+  > marcaba como hecho sin haber escrito nada. En la 2.10.0 eso además quemaba, sin llegar a
+  > tomarla, la copia del `.htaccess` en la que se apoya la recuperación de los ajustes de
+  > Cabeceras. **Corregido en Vigilante 2.10.1** (fallo reportado a su autor desde este
+  > proyecto), que además reabre esa ventana de captura para las redes afectadas. Al actualizar
+  > desde 2.9.9 o 2.10.0 no hace falta ninguna precaución especial: basta con actualizar y
+  > visitar el sitio principal una vez.
 
 - **Actualizaciones de este plugin:** llegan por GitHub Releases vía Plugin Update Checker.
   Política recomendada: **solo notificación** (no auto-update silencioso, porque afecta al

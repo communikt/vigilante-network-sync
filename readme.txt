@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.5
+Stable tag: 2.0.6
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -103,6 +103,21 @@ sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
 
+= 2.0.6 - 2026-08-29 =
+* **Revisado y validado contra Vigilante 2.10.5**, sin cambios de código. `class-settings.php`
+  cambia en un solo bloque, y es una adición (`owns_shared_files()`): el esquema de
+  `vigilante_options` no se toca. `class-firewall.php` y `class-ip-utils.php` son idénticos, y de
+  `class-login-security.php` solo cambia la vía rápida de wp-admin, que no colisiona con el
+  bloqueo de login de los subsitios.
+* ✅ Vigilante 2.10.1 corrige el fallo del `.htaccess` en multisite que avisaba la v2.0.5
+  y que se reportó a su autor desde este proyecto. Además reabre la ventana de captura de la copia
+  del fichero, así que las redes afectadas la recuperan: **ya no hace falta guardar una copia
+  manual del `.htaccess` antes de actualizar una red**.
+* ⚠️ Vigilante 2.10.3 es una publicación de seguridad (XSS almacenado CVE-2026-81754, salto del
+  segundo factor y una escalada en multisite): conviene actualizar.
+* ℹ️ Desde Vigilante 2.10.3, en multisite solo los administradores de red pueden gestionar el 2FA,
+  las sesiones o el reinicio de contraseña de otros usuarios. No afecta al sincronizador.
+
 = 2.0.5 - 2026-08-26 =
 * **Revisado y validado contra Vigilante 2.10.0**, sin cambios de código. `class-settings.php`
   es byte a byte idéntico al de 2.9.9, así que el esquema de `vigilante_options` no cambia, y
@@ -196,9 +211,13 @@ Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
 
+= 2.0.6 =
+Compatibilidad validada con Vigilante 2.10.5, sin cambios de código. Vigilante 2.10.3 es una
+publicación de seguridad: se recomienda actualizarlo.
+
 = 2.0.5 =
-Compatibilidad validada con Vigilante 2.10.0, sin cambios de código. Si actualizas una red a
-Vigilante 2.10.0, guarda antes una copia del .htaccess del sitio principal (ver changelog).
+Compatibilidad validada con Vigilante 2.10.0, sin cambios de código. El aviso de guardar una copia
+del .htaccess antes de actualizar una red ya no aplica: corregido en Vigilante 2.10.1.
 
 = 2.0.4 =
 Mantenimiento para Vigilante 2.9.9: sin cambios de comportamiento. Limpia dos campos que
