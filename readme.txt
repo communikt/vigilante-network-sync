@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.6
+Stable tag: 2.0.7
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -102,6 +102,25 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.7 - 2026-09-09 =
+* **Corregido: el log reportaba un error de escritura inexistente.** Lo que se guarda en
+  `vigilante_options` nunca es el payload que enviamos, sino su versión saneada: el validador de
+  Vigilante está enganchado como `sanitize_callback` de esa opción, así que toda escritura pasa
+  por él. Desde Vigilante 2.11.0 ese saneado descarta las claves que su esquema no declara, de
+  modo que si la configuración del sitio principal arrastra alguna, `update_option()` devuelve
+  `false` en cada pasada y el sync marcaba error en todos los subsitios, siempre, con la
+  configuración correctamente replicada. Ahora se distingue ese caso de un fallo de escritura real.
+* **Revisado y validado contra Vigilante 2.11.2** sobre el diff completo desde 2.10.5.
+  `get_default_options()` es byte a byte idéntica (el esquema no cambia) y los cuatro métodos de
+  los que depende el sincronizador siguen igual. El bloqueo de login de los subsitios tampoco se
+  ve afectado.
+* ⚠️ Vigilante 2.11.0 y 2.11.2 son publicaciones de seguridad importantes: conviene actualizar.
+  Los dispositivos recordados para el segundo factor tendrán que verificarse una vez más.
+* ⚠️ La limpieza de credenciales de Vigilante 2.11.2 (la línea base de integridad guardaba
+  `wp-config.php` en una opción) va por `admin_init` y por sitio: en una red, un subsitio que nadie
+  visite conserva esos secretos. Reportado a su autor. Vía manual: visitar una vez el escritorio de
+  cada subsitio con Vigilante ya actualizado.
 
 = 2.0.6 - 2026-08-29 =
 * **Revisado y validado contra Vigilante 2.10.5**, sin cambios de código. `class-settings.php`
@@ -210,6 +229,11 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.7 =
+Corrige un error de diagnóstico: con Vigilante 2.11.0+ el log podía marcar error de escritura en
+todos los subsitios aunque la sincronización fuese correcta. Compatibilidad validada con Vigilante
+2.11.2, que es una publicación de seguridad y conviene actualizar.
 
 = 2.0.6 =
 Compatibilidad validada con Vigilante 2.10.5, sin cambios de código. Vigilante 2.10.3 es una

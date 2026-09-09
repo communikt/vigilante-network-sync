@@ -204,6 +204,19 @@ vigsync_assert(
 	'(e) Vigilante < 2.9.8: només el CSP report_uri es preserva'
 );
 
+echo "already_stored() sense validador (Vigilante < 2.11.0):\n";
+
+/*
+ * Aquí Vigilante_Settings encara no existeix, així que és el moment d'exercitar
+ * el camí de compatibilitat: sense validador no es pot afirmar que el destí ja
+ * estigui sincronitzat, i el false d'update_option() s'ha de seguir reportant.
+ */
+vigsync_assert(
+	false,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( array( 'firewall' => array( 'enabled' => true ) ), array() ) ),
+	'(m) sense validador → no s\'empassa el false d\'update_option()'
+);
+
 /*
  * Stub de Vigilante 2.9.8: reprodueix les dues llistes que publica el plugin.
  *
@@ -249,6 +262,40 @@ if ( ! class_exists( 'Vigilante_Settings' ) ) {
 				'file_integrity' => array( 'excluded_paths', 'excluded_extensions' ),
 				'email'          => array( 'additional_recipients' ),
 			);
+		}
+
+		/**
+		 * Validador de Vigilante 2.11.0+: descarta el que l'esquema no declara.
+		 *
+		 * `register_setting()` l'enganxa com a `sanitize_callback` de
+		 * `vigilante_options`, així que tot `update_option()` hi passa. Fins a la
+		 * 2.10.5 les claus desconegudes es desaven igualment (sanejades); des de la
+		 * 2.11.0 desapareixen. No cal reproduir l'esquema sencer: només el
+		 * comportament que canvia el resultat del sincronitzador.
+		 *
+		 * @param array $input Configuració a desar.
+		 * @return array
+		 */
+		public function validate_options( $input ) {
+			$schema = array(
+				'modules'        => array( 'login_security', 'firewall' ),
+				'login_security' => array( 'custom_login_url', 'max_login_attempts', 'ip_whitelist', 'two_factor' ),
+				'firewall'       => array( 'ip_whitelist', 'ua_whitelist', 'trusted_proxy_header' ),
+			);
+
+			$validated = array();
+			foreach ( (array) $input as $section => $data ) {
+				if ( ! is_array( $data ) || ! isset( $schema[ $section ] ) ) {
+					continue;
+				}
+				foreach ( $data as $key => $value ) {
+					if ( in_array( $key, $schema[ $section ], true ) ) {
+						$validated[ $section ][ $key ] = $value;
+					}
+				}
+			}
+
+			return $validated;
 		}
 	}
 }
@@ -454,6 +501,46 @@ vigsync_assert( array( '192.168.1.*' ), $amb_validador['firewall']['ip_blacklist
 vigsync_assert( array( 'no-soc-una-ip' ), $amb_validador['firewall']['ua_whitelist'], '(l) les llistes de User-Agent no es toquen mai' );
 vigsync_assert( array( '1.2.3.4' ), $amb_validador['login_security']['ip_whitelist'], '(l) login_security.ip_whitelist esporgada (buit descartat sense avís)' );
 vigsync_assert( array(), $amb_validador['activity_log']['excluded_ips'], '(l) activity_log.excluded_ips buidada de l\'entrada impossible' );
+
+// ---------------------------------------------------------------------------
+// already_stored(): distingir el false "no hi havia res a fer" del false d'error.
+//
+// Des de Vigilante 2.11.0 el payload i el que queda desat poden no coincidir
+// (el validador descarta les claus fora d'esquema). Quan passa, update_option()
+// retorna false en cada sincronització tot i que el destí és correcte, i abans
+// d'aquest mètode això omplia el log d'errors inexistents a tots els subsites.
+// ---------------------------------------------------------------------------
+
+echo "already_stored() amb validador (Vigilante 2.11.0+):\n";
+
+$payload_residu = array(
+	'login_security' => array( 'custom_login_url' => 'acceso', 'residu_versio_antiga' => 'x' ),
+	'firewall'       => array( 'trusted_proxy_header' => 'HTTP_CF_CONNECTING_IP' ),
+);
+
+// El destí ja té el payload sanejat: la clau de residu no s'hi pot desar mai.
+$desat_al_desti = array(
+	'login_security' => array( 'custom_login_url' => 'acceso' ),
+	'firewall'       => array( 'trusted_proxy_header' => 'HTTP_CF_CONNECTING_IP' ),
+);
+
+vigsync_assert(
+	true,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $payload_residu, $desat_al_desti ) ),
+	'(m) clau fora d\'esquema al principal → el destí ja està sincronitzat, no és error'
+);
+
+vigsync_assert(
+	false,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $payload_residu, array( 'login_security' => array( 'custom_login_url' => 'una-altra' ) ) ) ),
+	'(m) el destí té un valor diferent → el false és un error de debò'
+);
+
+vigsync_assert(
+	false,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $payload_residu, array() ) ),
+	'(m) destí buit → error, no es dóna per sincronitzat'
+);
 
 // ---------------------------------------------------------------------------
 // should_block_request(): decisió de bloqueig de login al subsite.

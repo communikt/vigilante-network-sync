@@ -315,4 +315,43 @@ class Vigsync_Detector {
 			'rejected' => (array) $split['rejected'],
 		);
 	}
+
+	/**
+	 * Aplica al payload el mateix sanejat que Vigilante li aplicarà en desar-lo.
+	 *
+	 * `Vigilante_Settings::validate_options()` no és només el validador del seu
+	 * formulari: `register_setting()` l'enganxa com a `sanitize_callback` de
+	 * `vigilante_options`, així que TOT `update_option()` d'aquesta opció hi passa,
+	 * inclòs el nostre. El que es desa mai és el payload que hi enviem, sinó la seva
+	 * versió sanejada.
+	 *
+	 * Des de Vigilante 2.11.0 això importa de debò: el validador va deixar de
+	 * conservar les claus que el seu esquema no declara (abans les desava
+	 * "sanejades"). Si la configuració del principal en porta cap —residu d'una
+	 * versió antiga, o d'una importació—, el payload i el que queda desat difereixen
+	 * sempre, i `update_option()` retorna false en cada sincronització perquè el
+	 * valor desat ja és el definitiu. Sense aquest mètode no podem distingir aquell
+	 * false d'un error d'escriptura real.
+	 *
+	 * S'instancia la classe de Vigilante a posta en comptes de replicar-ne el
+	 * criteri: així el dia que el seu esquema canviï, aquest mètode canvia amb ell.
+	 *
+	 * @param array $config Payload a desar.
+	 * @return array|null El payload tal com quedarà desat, o null si aquesta versió
+	 *                    de Vigilante no ofereix el validador.
+	 */
+	public static function sanitize_like_vigilante( $config ) {
+		if ( ! class_exists( 'Vigilante_Settings' ) || ! method_exists( 'Vigilante_Settings', 'validate_options' ) ) {
+			return null;
+		}
+
+		try {
+			$settings  = new Vigilante_Settings();
+			$sanitized = $settings->validate_options( $config );
+		} catch ( Throwable $e ) {
+			return null;
+		}
+
+		return is_array( $sanitized ) ? $sanitized : null;
+	}
 }

@@ -14,6 +14,70 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.7] - 2026-09-09
+
+Mantenimiento para **Vigilante 2.11.2**, con una corrección propia. La revisión se hizo sobre el
+diff completo 2.10.5 → 2.11.2 (veintiún ficheros, unas 2.200 líneas): el sincronizador es
+**compatible**, pero el endurecimiento del validador de Vigilante deja al descubierto un fallo de
+diagnóstico de este plugin que había que arreglar.
+
+### Corregido
+- **El log dejaba de ser fiable: reportaba un error de escritura que no existía.** Al sincronizar
+  un subsitio se comparaba el payload con lo que había en el destino y se juzgaba el resultado por
+  el booleano de `update_option()`. Pero lo que se guarda nunca es el payload: `validate_options()`
+  de Vigilante está enganchado con `register_setting()` como `sanitize_callback` de
+  `vigilante_options`, así que **toda** escritura de esa opción pasa por él, incluida la nuestra.
+  Hasta la 2.10.5 daba igual, porque el validador conservaba las claves que su esquema no declara.
+  Desde la **2.11.0 las descarta**, de modo que si la configuración del sitio principal arrastra
+  alguna (residuo de una versión anterior, o de una importación), el payload y lo que queda
+  guardado no coinciden nunca: `update_option()` devuelve `false` en cada pasada porque el valor
+  almacenado ya es el definitivo, y el sync escribía *"update_option ha retornat false (possible
+  error d'escriptura)"* en **todos** los subsitios, en **cada** sincronización, indefinidamente,
+  con la configuración perfectamente replicada. Ahora, cuando `update_option()` devuelve `false`,
+  se rehace el saneado con el propio validador de Vigilante
+  (`Vigsync_Detector::sanitize_like_vigilante()`) y se compara con lo que había: si coinciden, la
+  escritura no tenía nada que hacer y el sitio consta como sincronizado; si no, el `false` es un
+  error de verdad y se sigue reportando. Con Vigilante anterior a 2.11.0, o sin validador
+  disponible, se mantiene el aviso de siempre. En una red el log es la única prueba de que el sync
+  funciona, así que un error inexistente es peor que no tener log.
+
+### Compatibilidad
+- **Revisado y validado contra Vigilante 2.11.2.** Prueba decisiva: `get_default_options()` es
+  **byte a byte idéntica** a la de 2.10.5, así que el esquema de `vigilante_options` no cambia. Y
+  los cuatro métodos de los que cuelga el acoplamiento del sincronizador
+  (`get_shared_file_settings()`, `get_user_data_keys()`, `owns_shared_files()` y
+  `can_write_shared_files()`) son **idénticos** uno por uno.
+- `class-ip-utils.php` **ni aparece en el diff**: `split_list()` sigue igual y la depuración de
+  listas de IPs se apoya en el mismo código.
+- `block_wp_login_access()` y `maybe_block_hidden_admin_early()` son **idénticas**, en el mismo
+  `login_init` con prioridad 1. `Vigsync_Login_Guard` (prioridad 0) sigue sin colisionar.
+- `maybe_sync_server_files()` no cambia: el arreglo del `.htaccess` en multisite de la 2.10.1
+  sigue en su sitio.
+- El `uninstall.php` de Vigilante 2.11.0 pasa a barrer **toda la red** (`get_sites()` +
+  `switch_to_blog()`), pero por el patrón `vigilante_*`. Las opciones de este plugin son
+  `vigsync_*` y viven en la tabla de red: no hay colisión.
+- Sube la cabecera `Vigilante compat:` a 2.11.2 para que el vigilante de versión no avise.
+
+### Nota operativa (asuntos de Vigilante, no de este plugin)
+- ⚠️ **Vigilante 2.11.0 y 2.11.2 son publicaciones de seguridad importantes**, salidas de una
+  auditoría cruzada. Entre otras cosas: el segundo factor ya no se puede saltar desde un
+  formulario de acceso que no sea `wp-login.php` (afectaba a cualquier formulario que llame a
+  `wp_signon()`, el de WooCommerce incluido, y se reprodujo contra la 2.10.5); un dispositivo
+  recordado se reconoce por un secreto en cookie `HttpOnly` y no por su User-Agent; el bloqueo por
+  intentos funciona en sitios cuya zona horaria no es UTC; y la lista blanca de User-Agent del
+  cortafuegos deja de saltárselo entero. **Todos los dispositivos recordados antes de la 2.11.0
+  tendrán que pasar el segundo factor una vez más.**
+- ⚠️ **La limpieza de credenciales de la 2.11.2 no llega a los subsitios de una red.** Esa versión
+  corrige que la línea base de integridad guardaba el contenido de `wp-config.php` en una opción,
+  con la contraseña de la base de datos y las ocho claves de autenticación dentro. La limpieza de
+  lo ya almacenado (`maybe_redact_stored_baseline()`) va colgada de `admin_init` y opera sobre
+  opciones por sitio, de modo que **un subsitio cuyo escritorio no visite nadie conserva esos
+  secretos en su tabla de opciones indefinidamente**. Y no se arregla solo con el tiempo: la línea
+  base únicamente se reescribe si el hash del fichero cambia o si le falta el contenido, así que un
+  escaneo posterior tampoco la limpia. Reportado a su autor desde este proyecto. Mientras no haya
+  corrección, la vía manual es visitar una vez el escritorio de cada subsitio de la red con
+  Vigilante ya actualizado.
+
 ## [2.0.6] - 2026-08-29
 
 Mantenimiento para **Vigilante 2.10.5**. Revisión hecha sobre el diff completo 2.10.0 → 2.10.5

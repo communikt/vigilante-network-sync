@@ -197,6 +197,9 @@ class Vigsync_Sync {
 							implode( ', ', $rejected_ips )
 						);
 					}
+				} elseif ( self::already_stored( $payload, $existing ) ) {
+					$result['status']  = 'skipped';
+					$result['message'] = __( 'Ja estava sincronitzat: Vigilante descarta del payload el que el seu esquema no declara, i el resultat ja era el que hi havia al destí.', 'vigilante-network-sync' );
 				} else {
 					$result['status']  = 'error';
 					$result['message'] = __( 'update_option ha retornat false (possible error d\'escriptura).', 'vigilante-network-sync' );
@@ -210,6 +213,46 @@ class Vigsync_Sync {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Indica si el destí ja conté exactament el que Vigilante desaria d'aquest payload.
+	 *
+	 * `update_option()` retorna false en dos casos que no s'assemblen gens: quan
+	 * l'escriptura falla i quan el valor desat ja és idèntic al que s'hi escriu.
+	 * Fins ara donàvem per fet el primer, i això era prou bo mentre el payload i el
+	 * que quedava desat coincidien.
+	 *
+	 * Des de Vigilante 2.11.0 ja no coincideixen sempre. El seu
+	 * `validate_options()` és el `sanitize_callback` de `vigilante_options`, així
+	 * que sanejar el payload no és opcional: hi passa tot `update_option()`. I des
+	 * d'aquella versió el sanejat DESCARTA les claus que el seu esquema no declara,
+	 * en comptes de conservar-les. Si la configuració del principal en porta cap
+	 * —residu d'una versió antiga, o d'una importació—, cada sincronització
+	 * enviava un payload que no es pot desar tal qual, rebia false i escrivia
+	 * "possible error d'escriptura" a TOTS els subsites, per sempre, tot i que la
+	 * configuració hi era correcta. Un log que crida a l'error quan no n'hi ha cap
+	 * és pitjor que no tenir-ne: en una xarxa és l'única prova que el sync funciona.
+	 *
+	 * Aquí es refà el sanejat amb el mateix validador de Vigilante i es compara amb
+	 * el que hi havia. Si coincideixen, l'escriptura no tenia res a fer i el destí
+	 * està sincronitzat. Si no, el false és un error de veritat i es reporta.
+	 *
+	 * Sense validador disponible (Vigilante molt antic) es retorna false: val més
+	 * mantenir l'avís que empassar-se un error real.
+	 *
+	 * @param array $payload  Payload que s'ha intentat desar.
+	 * @param array $existing Configuració que hi havia al destí abans d'escriure.
+	 * @return bool
+	 */
+	private static function already_stored( $payload, $existing ) {
+		$sanitized = Vigsync_Detector::sanitize_like_vigilante( $payload );
+
+		if ( null === $sanitized ) {
+			return false;
+		}
+
+		return $sanitized === $existing;
 	}
 
 	/**
