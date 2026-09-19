@@ -258,6 +258,8 @@ class Vigsync_Network_Admin {
 		$custom_login_on    = $vigilante_active && Vigsync_Detector::is_custom_login_enabled_on_source();
 		$source_slug        = Vigsync_Detector::get_source_custom_login_slug();
 		$id_was_invalid     = Vigsync_Settings::source_site_id_was_invalid();
+		$two_factor_network = $vigilante_active && Vigsync_Detector::two_factor_is_network_wide();
+		$two_factor_diverge = $two_factor_network ? Vigsync_Detector::sites_with_divergent_two_factor() : array();
 
 		require VIGSYNC_INCLUDES_DIR . 'views/network-settings-page.php';
 	}

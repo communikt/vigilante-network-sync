@@ -317,6 +317,137 @@ class Vigsync_Detector {
 	}
 
 	/**
+	 * Indica si aquesta versió de Vigilante decideix el 2FA per a tota la xarxa.
+	 *
+	 * Fins a la 2.11.9, els ajustos de segon factor, els rols forçats i la matrícula
+	 * es llegien del site on arribava el login, mentre que la cookie que emet
+	 * WordPress val a tota la xarxa. Des de la 2.11.10 la política és la UNIÓ del
+	 * que demana cada site: n'hi ha prou que un site la demani perquè el compte
+	 * l'hagi de passar, arribi el login per on arribi.
+	 *
+	 * Això canvia el significat de preservar `login_security.two_factor` per site.
+	 * Abans era prudència sense efectes (cada site decidia el seu). Ara un
+	 * `two_factor.enabled` residual a QUALSEVOL subsite imposa segon factor a
+	 * comptes de tota la xarxa, sense que cap pantalla ho expliqui.
+	 *
+	 * Es detecta pel mètode que implementa la unió, no per número de versió: si el
+	 * disseny torna enrere, la comprovació torna enrere amb ell.
+	 *
+	 * @return bool
+	 */
+	public static function two_factor_is_network_wide() {
+		return class_exists( 'Vigilante_Settings' )
+			&& method_exists( 'Vigilante_Settings', 'two_factor_required_for' );
+	}
+
+	/**
+	 * Normalitza el que un site DEMANA com a segon factor, per poder comparar-ho.
+	 *
+	 * Replica el criteri de `Vigilante_Settings::two_factor_site_requires()`: un
+	 * site amb el mòdul `login_security` apagat no demana res (encara que li quedi
+	 * un `two_factor.enabled` orfe), i un amb el mòdul encès però el segon factor
+	 * desactivat, tampoc. Les llistes s'ordenen perquè dos sites amb els mateixos
+	 * rols en un altre ordre no comptin com a divergents.
+	 *
+	 * @param array $config Config de Vigilante d'un site.
+	 * @return array Descripció comparable de la demanda d'aquell site.
+	 */
+	private static function two_factor_demand_of( $config ) {
+		if ( ! is_array( $config ) || empty( $config['modules']['login_security'] ) ) {
+			return array( 'enabled' => false );
+		}
+
+		$two_factor = ( isset( $config['login_security']['two_factor'] ) && is_array( $config['login_security']['two_factor'] ) )
+			? $config['login_security']['two_factor']
+			: array();
+
+		if ( empty( $two_factor['enabled'] ) ) {
+			return array( 'enabled' => false );
+		}
+
+		// El mateix valor per defecte que fa servir Vigilante quan no hi ha rols desats.
+		$roles = isset( $two_factor['enforced_roles'] )
+			? array_map( 'strval', (array) $two_factor['enforced_roles'] )
+			: array( 'administrator', 'editor' );
+		sort( $roles );
+
+		$excluded = isset( $two_factor['excluded_users'] )
+			? array_map( 'absint', (array) $two_factor['excluded_users'] )
+			: array();
+		sort( $excluded );
+
+		$method = isset( $two_factor['method'] ) ? (string) $two_factor['method'] : 'email';
+
+		return array(
+			'enabled'  => true,
+			// Vigilante llegeix com a 'email' qualsevol mètode que no conegui.
+			'method'   => in_array( $method, array( 'email', 'totp' ), true ) ? $method : 'email',
+			'roles'    => array_values( $roles ),
+			'excluded' => array_values( $excluded ),
+		);
+	}
+
+	/**
+	 * Sites de la xarxa que demanen un segon factor diferent del site principal.
+	 *
+	 * Només té sentit amb una versió de Vigilante que decideixi el 2FA per xarxa
+	 * (vegeu `two_factor_is_network_wide()`); amb versions anteriors retorna una
+	 * llista buida perquè la divergència no tenia conseqüències.
+	 *
+	 * ⚠️ Recorre tots els sites amb `switch_to_blog()`. Es crida només des de la
+	 * pàgina d'ajustos del plugin, que és on es pot fer alguna cosa al respecte,
+	 * mai des d'un `admin_notices` global.
+	 *
+	 * @return array<int,string> ID del site => etiqueta (domini + ruta).
+	 */
+	public static function sites_with_divergent_two_factor() {
+		if ( ! self::two_factor_is_network_wide() || ! self::is_vigilante_active() ) {
+			return array();
+		}
+
+		$source_id = Vigsync_Settings::get_source_site_id();
+		$source    = self::get_site_config( $source_id );
+
+		if ( ! is_array( $source ) ) {
+			return array();
+		}
+
+		$reference = self::two_factor_demand_of( $source );
+		$divergent = array();
+
+		$sites = get_sites(
+			array(
+				'number'   => 0,
+				'archived' => 0,
+				'deleted'  => 0,
+				'spam'     => 0,
+			)
+		);
+
+		foreach ( $sites as $site ) {
+			$site_id = (int) $site->blog_id;
+
+			if ( $site_id === $source_id ) {
+				continue;
+			}
+
+			$config = self::get_site_config( $site_id );
+
+			// Un site sense config de Vigilante no demana res i tampoc no en desa:
+			// no divergeix, s'hi sincronitzarà quan toqui.
+			if ( ! is_array( $config ) ) {
+				continue;
+			}
+
+			if ( self::two_factor_demand_of( $config ) !== $reference ) {
+				$divergent[ $site_id ] = untrailingslashit( $site->domain . $site->path );
+			}
+		}
+
+		return $divergent;
+	}
+
+	/**
 	 * Aplica al payload el mateix sanejat que Vigilante li aplicarà en desar-lo.
 	 *
 	 * `Vigilante_Settings::validate_options()` no és només el validador del seu

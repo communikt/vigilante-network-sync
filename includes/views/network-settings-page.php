@@ -143,9 +143,32 @@ $sites  = get_sites(
 					</label><br>
 					<label>
 						<input type="checkbox" name="sync_two_factor" value="1" <?php checked( ! empty( $settings['sync_two_factor'] ) ); ?>>
-						<?php esc_html_e( 'Copiar també la configuració de 2FA (només recomanat si el mètode és e-mail)', 'vigilante-network-sync' ); ?>
+						<?php
+						if ( $two_factor_network ) {
+							esc_html_e( 'Copiar també la configuració de 2FA (recomanat: Vigilante ja la decideix per a tota la xarxa)', 'vigilante-network-sync' );
+						} else {
+							esc_html_e( 'Copiar també la configuració de 2FA (només recomanat si el mètode és e-mail)', 'vigilante-network-sync' );
+						}
+						?>
 					</label>
-					<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos. Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
+					<?php if ( $two_factor_network ) : ?>
+						<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos.', 'vigilante-network-sync' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Aquesta versió de Vigilante decideix el segon factor per a TOTA la xarxa: la política és la unió del que demana cada site, així que n\'hi ha prou que un subsite el demani perquè el compte l\'hagi de passar, arribi el login per on arribi. Per això ara és recomanable copiar-lo, i ja no hi ha el risc d\'abans: la matrícula TOTP també es busca a la taula de tots els sites que el compte pot arribar, de manera que copiar la configuració no deixa ningú sense poder validar.', 'vigilante-network-sync' ); ?></p>
+					<?php else : ?>
+						<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos. Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
+					<?php endif; ?>
+					<?php if ( $two_factor_diverge ) : ?>
+						<p class="description vigsync-bad">
+							<strong><?php esc_html_e( 'Segon factor divergent a la xarxa.', 'vigilante-network-sync' ); ?></strong>
+							<?php
+							printf(
+								/* translators: %s: llista de sites, separats per comes */
+								esc_html__( 'Aquests sites demanen un segon factor diferent del site principal: %s. Com que Vigilante ara suma el que demana cada site, aquesta diferència afecta comptes de tota la xarxa. Marca la casella de dalt i sincronitza per unificar-la, o revisa la configuració de 2FA d\'aquests sites.', 'vigilante-network-sync' ),
+								esc_html( implode( ', ', $two_factor_diverge ) )
+							);
+							?>
+						</p>
+					<?php endif; ?>
 					<?php if ( Vigsync_Detector::get_shared_file_settings() ) : ?>
 						<p class="description"><?php esc_html_e( 'Vigilante 2.9.8 o superior detectat: els ajustos que només s\'escriuen a wp-config.php i al .htaccess (capçaleres de seguretat, hardening de WP i les proteccions de fitxers) ja NO es copien als subsites. Aquests dos fitxers són únics a tota la xarxa i només els escriu el site principal, així que copiar-hi res no tindria cap efecte.', 'vigilante-network-sync' ); ?></p>
 					<?php endif; ?>

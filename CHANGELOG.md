@@ -14,6 +14,77 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.8] - 2026-09-19
+
+Mantenimiento para **Vigilante 3.0.0**, con una corrección de compatibilidad que **no es
+cosmética**. La revisión se hizo sobre el diff completo 2.11.3 → 3.0.0 (treinta y cuatro ficheros
+modificados, cinco nuevos, unas 12.400 líneas de diff y setenta y cuatro entradas de changelog,
+casi todas acumuladas de las 2.11.4–2.11.12, que nunca se publicaron por separado).
+
+Los cuatro puntos de acoplamiento con Vigilante siguen intactos y Fernando Tellado ha documentado
+el nuestro dentro de su propio código (`class-settings.php`, sobre `get_user_data_keys()`:
+*"the third-party network plugin Vigilante Network Sync calls this from its 2.0.3 to decide what
+NOT to copy between the sites of a network"*), de modo que un cambio en esa lista ya no puede
+pasar inadvertido. Lo que sí cambió fue el esquema: hay una clave nueva cuya ausencia rompía algo
+de verdad.
+
+### Corregido
+- **En una red detrás de un proxy público, los subsitios veían a todos los visitantes con la misma
+  IP.** Vigilante 2.11.9 añadió `firewall.trusted_proxies`, la lista de pares desde los que se
+  acepta la cabecera reenviada (`X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`), y la declaró
+  como dato de usuario en `get_user_data_keys()`. Nuestra red de seguridad hizo lo que debía y la
+  preservó del destino, pero `firewall.trusted_proxy_header` sí estaba en
+  `NETWORK_UNIFORM_FIELDS` y se copiaba: los subsitios quedaban con la cabecera configurada y la
+  lista vacía. Esa mitad sola no sirve, porque desde la 2.11.9 Vigilante solo hace caso de la
+  cabecera si `Vigilante_IP_Utils::peer_is_trusted_proxy()` reconoce la conexión, y con la lista
+  vacía eso se reduce a "¿es una dirección de mi propia red privada?" (o los rangos de Cloudflare,
+  para `CF-Connecting-IP`). Detrás de un proxy o balanceador público que no fuera Cloudflare, el
+  subsitio descartaba la cabecera y resolvía **la dirección del proxy** para cada visitante: las
+  listas blanca y negra de IP no coincidían nunca, el *rate limiting* y el bloqueo de login se
+  acumulaban sobre una sola dirección (un atacante bloqueaba a todo el mundo, o el sitio se
+  bloqueaba a sí mismo) y el registro de actividad anotaba siempre el proxy. Comprobado
+  ejecutando `Vigilante_IP_Utils::resolve_client_ip()` de la 3.0.0: con un proxy en
+  `203.0.113.10` y `X-Forwarded-For: 198.51.100.77`, el principal resolvía `198.51.100.77` y el
+  subsitio `203.0.113.10`. Las dos claves describen la misma realidad (el hosting o la CDN que hay
+  delante, que es única para toda la instalación), así que ahora viajan juntas en
+  `NETWORK_UNIFORM_FIELDS`.
+
+### Añadido
+- **Aviso de segundo factor divergente en la red.** Hasta la 2.11.9, preservar
+  `login_security.two_factor` por sitio era prudencia sin consecuencias: cada sitio decidía lo
+  suyo. Desde la **2.11.10** la política de 2FA de Vigilante es la **unión** de lo que pide cada
+  sitio de la red (la cookie que emite WordPress vale en toda la red, y leerla por sitio era un
+  bypass: con la contraseña de un administrador protegido en el principal se podía hacer POST del
+  login a un subsitio y salir con sesión válida en todas partes). Ahora un `two_factor.enabled`
+  residual en **cualquier** subsitio impone segundo factor a cuentas de toda la instalación, sin
+  que ninguna pantalla lo explique. La página de Vigilante Sync detecta esa divergencia
+  (`Vigsync_Detector::sites_with_divergent_two_factor()`, que replica el criterio de
+  `Vigilante_Settings::two_factor_site_requires()`, incluido el de los dos niveles de interruptor:
+  un sitio con el módulo `login_security` apagado no pide nada aunque le quede un `two_factor`
+  huérfano) y lista los sitios afectados.
+- El texto de la casilla de copiar 2FA cambia con la versión de Vigilante instalada. Con una que
+  decida el 2FA por red, copiarlo pasa a ser **lo recomendable**, y la advertencia de los secretos
+  TOTP desaparece porque ya no aplica: desde la 2.11.10 la matrícula se busca en la tabla de todos
+  los sitios que la cuenta puede alcanzar, así que copiar la configuración ya no deja a nadie sin
+  poder validar. La detección se hace por la existencia del método que implementa la unión
+  (`Vigilante_Settings::two_factor_required_for()`), no por número de versión: si el diseño vuelve
+  atrás, el aviso vuelve atrás con él.
+
+### Notas de compatibilidad (sin cambios de código)
+- `Vigilante_Settings::get_shared_file_settings()` incorpora la sección `advanced`
+  (`remove_readme`, `remove_license`) y dos claves más de `firewall` (`block_php_in_plugins`,
+  `block_php_in_themes`). El sincronizador las consume de forma genérica y ya las preserva.
+- `Vigilante_IP_Utils::split_list()` y `Vigilante_Settings::validate_options()` mantienen forma y
+  comportamiento. Fernando se planteó aplicar el candado de ajustes de red dentro de
+  `validate_options()` y **decidió no hacerlo** a propósito (lo razona en un comentario de
+  `class-settings.php`), precisamente porque es el `sanitize_callback` de la opción y afectaría a
+  las escrituras sin usuario detrás: la nuestra sigue pasando limpia.
+- `Vigilante_Settings::owns_shared_files()` ahora exige también `is_main_network()`, para
+  instalaciones con más de una red. No afecta al sincronizador, que preserva los ajustes de
+  fichero compartido en todos los destinos.
+- Los 58 asserts de `tests/test-logic.php` pasan (nueve nuevos: uno para `trusted_proxies` y ocho
+  para la normalización de la demanda de segundo factor).
+
 ## [2.0.7] - 2026-09-09
 
 Mantenimiento para **Vigilante 2.11.2**, con una corrección propia. La revisión se hizo sobre el

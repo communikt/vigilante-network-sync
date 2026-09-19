@@ -29,6 +29,18 @@ class Vigsync_Sync {
 	 * activat" sense el secret deixaria l'usuari sense poder validar. Amb mètode
 	 * e-mail no hi ha secret, però es preserva igualment per defecte per prudència.
 	 *
+	 * ⚠️ Des de Vigilante 2.11.10 aquest raonament ja no s'aguanta, i el valor per
+	 * defecte es manté només per no canviar el comportament de cap xarxa sense
+	 * avisar. D'una banda la matrícula TOTP es busca a la taula de TOTS els sites
+	 * que el compte pot arribar, així que copiar la configuració ja no deixa ningú
+	 * sense poder validar. De l'altra, la política de segon factor va passar a ser
+	 * la UNIÓ del que demana cada site de la xarxa (la cookie que emet WordPress
+	 * val a tota la xarxa, i llegir-la per site era un bypass): ara un
+	 * `two_factor.enabled` residual a qualsevol subsite imposa segon factor a
+	 * comptes de tota la instal·lació. Per això la pàgina d'ajustos detecta la
+	 * divergència (`Vigsync_Detector::sites_with_divergent_two_factor()`) i
+	 * recomana marcar la casella quan Vigilante decideix el 2FA per xarxa.
+	 *
 	 * `email.additional_recipients` es preserva sempre: qui ha de rebre els avisos
 	 * d'un site és una decisió d'aquell site (sovint el client), no del principal.
 	 *
@@ -53,9 +65,24 @@ class Vigsync_Sync {
 	 * propaguen, obliguen a configurar-los site per site:
 	 *
 	 * - `firewall.trusted_proxy_header`: depèn del hosting/CDN, idèntic a tota la xarxa.
+	 * - `firewall.trusted_proxies`: la parella de l'anterior, vegeu la nota de sota.
 	 * - `user_security.insecure_usernames`: llista de noms prohibits, política global.
 	 * - `file_integrity.*`: l'escaneig recorre el MATEIX sistema de fitxers a tots els
 	 *   sites de la xarxa, així que les exclusions han de ser necessàriament iguals.
+	 *
+	 * ⚠️ `firewall.trusted_proxies` (Vigilante 2.11.9+) va entrar a
+	 * `get_user_data_keys()` i, per tant, la xarxa de seguretat el preservava del
+	 * destí mentre `trusted_proxy_header` SÍ es copiava. Aquella meitat sola no
+	 * serveix de res: des de la 2.11.9 Vigilante només fa cas de la capçalera
+	 * reenviada si la connexió ve d'un peer que pugui verificar com a proxy
+	 * (`Vigilante_IP_Utils::peer_is_trusted_proxy()`), i amb la llista buida això
+	 * es redueix a «¿és una adreça de la meva pròpia xarxa privada?» (o els rangs
+	 * de Cloudflare, per a `CF-Connecting-IP`). Darrere d'un proxy públic que no
+	 * sigui Cloudflare, el subsite ignorava la capçalera i veia TOTS els visitants
+	 * amb l'adreça del proxy: les llistes blanca i negra no coincidien mai, i el
+	 * rate limiting i el bloqueig de login s'acumulaven sobre una sola adreça.
+	 * Les dues claus descriuen la mateixa realitat (el hosting/CDN que hi ha
+	 * davant), que és única per a tota la instal·lació, així que viatgen juntes.
 	 *
 	 * La llista de Vigilante respon a una pregunta diferent de la nostra ("què no ha
 	 * d'esborrar un botó de restauració" vs. "què és propi de cada site d'una xarxa"),
@@ -72,7 +99,7 @@ class Vigsync_Sync {
 	 * @var array
 	 */
 	const NETWORK_UNIFORM_FIELDS = array(
-		'firewall'       => array( 'trusted_proxy_header' ),
+		'firewall'       => array( 'trusted_proxy_header', 'trusted_proxies' ),
 		'user_security'  => array( 'insecure_usernames' ),
 		'file_integrity' => array( 'excluded_paths', 'excluded_extensions' ),
 	);

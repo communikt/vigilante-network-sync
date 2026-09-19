@@ -68,8 +68,15 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
   Al copiarlas, las entradas de **IP** que nunca podrían coincidir (`999.999.999.999/99`, una
   palabra suelta…) se descartan con el mismo validador que usa Vigilante 2.9.9 al guardar, y
   se nombran en el log del sync. Las de User-Agent no se tocan.
-- **Configuración de 2FA** (`login_security.two_factor`) — los secretos TOTP son por sitio;
-  marca la casilla para copiarla solo si el método es **e-mail**.
+- **Configuración de 2FA** (`login_security.two_factor`) — marca la casilla para copiarla.
+  **Con Vigilante anterior a 2.11.10:** hazlo solo si el método es **e-mail**, porque los
+  secretos TOTP viven en tablas por sitio y copiar el "método activado" sin el secreto dejaría
+  al usuario sin poder validar. **Desde Vigilante 2.11.10 es al revés y conviene copiarla:**
+  la política de segundo factor pasó a ser la **unión** de lo que pide cada sitio de la red,
+  así que un `two_factor.enabled` residual en cualquier subsitio impone segundo factor a
+  cuentas de toda la instalación; y la matrícula TOTP se busca en la tabla de todos los sitios
+  que la cuenta puede alcanzar, de modo que copiar la configuración ya no deja a nadie fuera.
+  La página de ajustes detecta esta situación, avisa y **lista los sitios divergentes**.
 - `email.additional_recipients` — quién recibe los avisos de un sitio es decisión de ese sitio.
 - `security_headers.csp.report_uri` (URL absoluta por sitio) — siempre se preserva.
 - Cualquier campo que Vigilante declare en `get_user_data_keys()` y que este plugin no conozca:
@@ -77,9 +84,16 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
   campos nuevos sin criterio.
 
 **Excepciones que sí se propagan** aunque Vigilante las trate como datos del usuario, porque en
-una red **en subdirectorio** son uniformes por definición: `firewall.trusted_proxy_header`,
-`user_security.insecure_usernames` y las exclusiones de `file_integrity` (el escaneo recorre el
-mismo sistema de ficheros en todos los sitios).
+una red **en subdirectorio** son uniformes por definición: `firewall.trusted_proxy_header` y
+`firewall.trusted_proxies`, `user_security.insecure_usernames` y las exclusiones de
+`file_integrity` (el escaneo recorre el mismo sistema de ficheros en todos los sitios).
+
+> Las dos claves de proxy viajan **juntas** desde la v2.0.8, y no es un detalle. Desde Vigilante
+> 2.11.9 la cabecera reenviada (`X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) solo se acepta
+> si la conexión viene de un par que Vigilante pueda reconocer como proxy, y con
+> `trusted_proxies` vacía eso se reduce a las direcciones de la propia red privada (o los rangos
+> de Cloudflare). Copiar solo la cabecera dejaba a los subsitios de una red detrás de un proxy
+> público viendo a **todos** los visitantes con la dirección del proxy.
 
 > En multisite los **IDs de usuario son globales**, así que las exclusiones por
 > usuario y los roles sí se replican correctamente.
@@ -92,8 +106,10 @@ mismo sistema de ficheros en todos los sitios).
   responden 404 **sin revelar el slug**. El 2FA se configura una sola vez y la cookie de
   red cubre el resto. **Requiere multisite en subdirectorio** (cookie de auth compartida).
 - **Modo independiente:** mismo slug en todos los sitios (vía sync) y bloqueo
-  desactivado. Cada sitio oculta su propio login; el 2FA se configura por sitio (las
-  tablas TOTP de Vigilante son por sitio; **no** marques copiar la config de 2FA con TOTP).
+  desactivado. Cada sitio oculta su propio login. Con Vigilante anterior a 2.11.10 el 2FA se
+  configura por sitio (las tablas TOTP son por sitio; **no** marques copiar la config de 2FA con
+  TOTP). Desde la 2.11.10 el 2FA ya no es por sitio ni aunque el login lo sea: la política es la
+  unión de toda la red, así que lo coherente es **marcar la casilla** y mantenerlo uniforme.
 - **`.htaccess` / `wp-config.php`** son únicos y compartidos en la red: configúralos desde el
   **sitio principal**. Con Vigilante 2.9.8 o superior esto ya no es solo una recomendación —
   el propio Vigilante rechaza esas escrituras desde cualquier otro sitio— y el sync replica

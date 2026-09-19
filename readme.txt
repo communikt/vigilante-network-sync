@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.7
+Stable tag: 2.0.8
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -102,6 +102,30 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.8 - 2026-09-19 =
+* **Corregido: en una red detrás de un proxy público, los subsitios veían a todos los visitantes
+  con la misma IP.** Vigilante 2.11.9 añadió `firewall.trusted_proxies` (la lista de pares desde
+  los que se acepta la cabecera reenviada) y la declaró como dato del sitio, así que se preservaba
+  del destino; pero `trusted_proxy_header` sí se copiaba, y los subsitios quedaban con la cabecera
+  puesta y la lista vacía. Con la lista vacía Vigilante solo acepta la cabecera desde una dirección
+  de la propia red privada (o de Cloudflare, para `CF-Connecting-IP`), de modo que detrás de un
+  proxy público el subsitio descartaba la cabecera y resolvía la dirección del proxy: las listas de
+  IP no coincidían nunca y el bloqueo de login y el *rate limiting* se acumulaban sobre una sola
+  dirección. Las dos claves describen el mismo hosting o CDN, que es único para toda la
+  instalación, y ahora se propagan juntas.
+* **Nuevo: aviso de segundo factor divergente.** Desde Vigilante 2.11.10 la política de 2FA es la
+  unión de lo que pide cada sitio de la red, así que un `two_factor` residual en cualquier subsitio
+  impone segundo factor a cuentas de toda la instalación. La página de Vigilante Sync lista ahora
+  los sitios cuya configuración difiere de la del principal, y con una versión de Vigilante que
+  decida el 2FA por red, copiarlo pasa a ser lo recomendable (la advertencia sobre los secretos
+  TOTP ya no aplica: la matrícula se busca en todos los sitios que la cuenta puede alcanzar).
+* **Revisado y validado contra Vigilante 3.0.0** sobre el diff completo desde 2.11.3 (treinta y
+  cuatro ficheros modificados, cinco nuevos). Los cuatro puntos de acoplamiento siguen intactos, y
+  el propio código de Vigilante documenta ahora que este plugin lee `get_user_data_keys()`.
+* ⚠️ Vigilante 3.0.0 acumula las correcciones de las 2.11.4–2.11.12, que no se publicaron por
+  separado, e incluye muchas de seguridad en multisitio (entre ellas un salto del segundo factor
+  usando un subsitio como puerta). Conviene actualizar.
 
 = 2.0.7 - 2026-09-09 =
 * **Corregido: el log reportaba un error de escritura inexistente.** Lo que se guarda en

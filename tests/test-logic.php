@@ -15,6 +15,24 @@
 // Les classes tenen una guarda `if ( ! defined( 'ABSPATH' ) ) exit;`.
 define( 'ABSPATH', __DIR__ . '/' );
 
+/*
+ * Stubs de WordPress. Només les funcions que la lògica pura sota prova fa servir
+ * de debò, amb la mateixa implementació que el core: si el criteri de WordPress
+ * canviés, el test deixaria de descriure la realitat i és millor que el stub sigui
+ * literalment el que fa el core i no una aproximació.
+ */
+if ( ! function_exists( 'absint' ) ) {
+	/**
+	 * Enter no negatiu (wp-includes/functions.php).
+	 *
+	 * @param mixed $maybeint Valor a convertir.
+	 * @return int
+	 */
+	function absint( $maybeint ) {
+		return abs( (int) $maybeint );
+	}
+}
+
 require_once __DIR__ . '/../includes/class-vigsync-detector.php';
 require_once __DIR__ . '/../includes/class-vigsync-sync.php';
 require_once __DIR__ . '/../includes/class-vigsync-login-guard.php';
@@ -251,12 +269,13 @@ if ( ! class_exists( 'Vigilante_Settings' ) ) {
 		 * @return array
 		 */
 		public static function get_user_data_keys() {
-			// Llista real de Vigilante 2.9.9: 'country_blocking' i 'suspicious_patterns'
-			// van desaparèixer de l'esquema (eren ajustos que cap codi llegia).
+			// Llista real de Vigilante 3.0.0: 'country_blocking' i 'suspicious_patterns'
+			// van desaparèixer de l'esquema a la 2.9.9 (eren ajustos que cap codi
+			// llegia) i 'trusted_proxies' hi va entrar a la 2.11.9.
 			// 'camp_futur_desconegut' no hi és a Vigilante: el posem per exercitar la
 			// xarxa de seguretat davant d'un camp que encara no coneixem.
 			return array(
-				'firewall'       => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'trusted_proxy_header' ),
+				'firewall'       => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'trusted_proxy_header', 'trusted_proxies' ),
 				'login_security' => array( 'ip_whitelist', 'custom_login_url', 'two_factor', 'camp_futur_desconegut' ),
 				'user_security'  => array( 'insecure_usernames' ),
 				'file_integrity' => array( 'excluded_paths', 'excluded_extensions' ),
@@ -280,7 +299,7 @@ if ( ! class_exists( 'Vigilante_Settings' ) ) {
 			$schema = array(
 				'modules'        => array( 'login_security', 'firewall' ),
 				'login_security' => array( 'custom_login_url', 'max_login_attempts', 'ip_whitelist', 'two_factor' ),
-				'firewall'       => array( 'ip_whitelist', 'ua_whitelist', 'trusted_proxy_header' ),
+				'firewall'       => array( 'ip_whitelist', 'ua_whitelist', 'trusted_proxy_header', 'trusted_proxies' ),
 			);
 
 			$validated = array();
@@ -313,6 +332,7 @@ $source_98 = array(
 	'firewall'         => array(
 		'ua_whitelist'         => array( 'UA-PRINCIPAL' ),
 		'trusted_proxy_header' => 'HTTP_CF_CONNECTING_IP',
+		'trusted_proxies'      => array( '203.0.113.10', '198.51.100.0/24' ),
 		'protect_wp_config'    => true,
 		'rate_limiting'        => array( 'enabled' => true, 'max_requests' => 120 ),
 	),
@@ -336,6 +356,7 @@ $existing_98 = array(
 	'firewall'         => array(
 		'ua_whitelist'         => array( 'UA-SUBSITE' ),
 		'trusted_proxy_header' => '',
+		'trusted_proxies'      => array(),
 		'protect_wp_config'    => false,
 	),
 	'security_headers' => array(
@@ -370,6 +391,10 @@ vigsync_assert( 5, $p98['login_security']['max_login_attempts'], '(g) login_secu
 
 // Camps uniformes a la xarxa: es propaguen tot i ser "user data" per a Vigilante.
 vigsync_assert( 'HTTP_CF_CONNECTING_IP', $p98['firewall']['trusted_proxy_header'], '(h) trusted_proxy_header es propaga (uniforme a la xarxa)' );
+// La parella de l'anterior. Vigilante 2.11.9+ només fa cas de la capçalera si la
+// connexió ve d'un peer d'aquesta llista; copiar-ne una meitat i preservar l'altra
+// deixava el subsite veient tots els visitants amb l'adreça del proxy.
+vigsync_assert( array( '203.0.113.10', '198.51.100.0/24' ), $p98['firewall']['trusted_proxies'], '(h) trusted_proxies es propaga amb la seva capçalera (v2.0.8)' );
 vigsync_assert( array( 'admin', 'root' ), $p98['user_security']['insecure_usernames'], '(h) insecure_usernames es propaga (política global)' );
 vigsync_assert( array( '/wp-content/cache' ), $p98['file_integrity']['excluded_paths'], '(h) file_integrity.excluded_paths es propaga (mateix filesystem)' );
 
@@ -540,6 +565,131 @@ vigsync_assert(
 	false,
 	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $payload_residu, array() ) ),
 	'(m) destí buit → error, no es dóna per sincronitzat'
+);
+
+// ---------------------------------------------------------------------------
+// two_factor_demand_of(): normalització de la demanda de segon factor d'un site.
+//
+// Des de Vigilante 2.11.10 la política de 2FA és la UNIÓ del que demana cada site
+// de la xarxa, així que preservar `login_security.two_factor` per site ja no és
+// inert: una diferència afecta comptes de tota la xarxa. Aquest helper és el que
+// decideix si dos sites demanen el mateix, i replica el criteri de
+// `Vigilante_Settings::two_factor_site_requires()`.
+// ---------------------------------------------------------------------------
+
+echo "two_factor_demand_of():\n";
+
+$apagat = array( 'enabled' => false );
+
+vigsync_assert(
+	$apagat,
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( array() ) ),
+	'(n) config buida → no demana res'
+);
+
+// El parany dels dos nivells d'interruptor: Vigilante ignora un two_factor orfe
+// si el mòdul login_security del site està apagat.
+vigsync_assert(
+	$apagat,
+	vigsync_call_private(
+		'Vigsync_Detector',
+		'two_factor_demand_of',
+		array(
+			array(
+				'modules'        => array( 'login_security' => 0 ),
+				'login_security' => array( 'two_factor' => array( 'enabled' => true, 'method' => 'totp' ) ),
+			),
+		)
+	),
+	'(n) mòdul login_security apagat → el two_factor orfe no compta'
+);
+
+vigsync_assert(
+	$apagat,
+	vigsync_call_private(
+		'Vigsync_Detector',
+		'two_factor_demand_of',
+		array(
+			array(
+				'modules'        => array( 'login_security' => 1 ),
+				'login_security' => array( 'two_factor' => array( 'enabled' => false, 'method' => 'totp' ) ),
+			),
+		)
+	),
+	'(n) mòdul encès però 2FA desactivat → no demana res'
+);
+
+$demanda_base = array(
+	'modules'        => array( 'login_security' => 1 ),
+	'login_security' => array(
+		'two_factor' => array(
+			'enabled'        => true,
+			'method'         => 'totp',
+			'enforced_roles' => array( 'editor', 'administrator' ),
+			'excluded_users' => array( '7', 3 ),
+		),
+	),
+);
+
+vigsync_assert(
+	array(
+		'enabled'  => true,
+		'method'   => 'totp',
+		'roles'    => array( 'administrator', 'editor' ),
+		'excluded' => array( 3, 7 ),
+	),
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $demanda_base ) ),
+	'(n) rols i exclusions normalitzats (ordenats, IDs a enter)'
+);
+
+// Mateixa demanda escrita en un altre ordre: no ha de comptar com a divergent.
+$demanda_reordenada                                                 = $demanda_base;
+$demanda_reordenada['login_security']['two_factor']['enforced_roles'] = array( 'administrator', 'editor' );
+$demanda_reordenada['login_security']['two_factor']['excluded_users'] = array( 3, '7' );
+
+vigsync_assert(
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $demanda_base ) ),
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $demanda_reordenada ) ),
+	'(n) el mateix en un altre ordre NO és divergència'
+);
+
+// Un mètode que Vigilante no coneix el llegeix com a 'email'; si no ho repliquéssim,
+// dos sites que demanen el mateix sortirien com a divergents.
+$metode_rar                                                = $demanda_base;
+$metode_rar['login_security']['two_factor']['method']      = 'sms';
+$metode_email                                              = $demanda_base;
+$metode_email['login_security']['two_factor']['method']    = 'email';
+
+vigsync_assert(
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $metode_email ) ),
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $metode_rar ) ),
+	'(n) un mètode desconegut es llegeix com a email (com fa Vigilante)'
+);
+
+// Sense rols desats, Vigilante aplica administrator+editor: dos sites, un amb la
+// clau i l'altre sense, demanen el mateix.
+$sense_rols = $demanda_base;
+unset( $sense_rols['login_security']['two_factor']['enforced_roles'], $sense_rols['login_security']['two_factor']['excluded_users'] );
+
+$amb_rols_per_defecte                                                   = $demanda_base;
+$amb_rols_per_defecte['login_security']['two_factor']['enforced_roles']  = array( 'administrator', 'editor' );
+$amb_rols_per_defecte['login_security']['two_factor']['excluded_users']  = array();
+
+vigsync_assert(
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $amb_rols_per_defecte ) ),
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $sense_rols ) ),
+	'(n) sense enforced_roles s\'aplica el defecte de Vigilante (administrator+editor)'
+);
+
+// I la divergència de debò sí que es veu.
+$altres_rols                                                    = $demanda_base;
+$altres_rols['login_security']['two_factor']['enforced_roles']   = array( 'administrator' );
+
+vigsync_assert(
+	true,
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $demanda_base ) )
+		!== vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $altres_rols ) ),
+	'(n) uns rols forçats diferents SÍ són divergència'
 );
 
 // ---------------------------------------------------------------------------
