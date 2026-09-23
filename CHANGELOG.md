@@ -14,6 +14,44 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.9] - 2026-09-23
+
+Mantenimiento para **Vigilante 3.0.1**, revisado sobre el diff completo 3.0.0 → 3.0.1 (trece
+ficheros, unas 460 líneas). Es una publicación correctiva de Vigilante centrada en las listas de
+roles, y **el sincronizador no necesita cambios**: `get_user_data_keys()`,
+`get_shared_file_settings()`, `owns_shared_files()` y `two_factor_site_requires()` no se tocan.
+
+Lo que sí cambia es cómo Vigilante lee sus listas. Hasta la 3.0.0, `array_merge_deep()` fusionaba
+lo guardado con los valores de fábrica posición a posición, así que una lista guardada más corta
+que la de fábrica volvía con la cola de esta pegada. Desde la 3.0.1 las listas se sustituyen
+enteras y lo guardado es lo que vale. No nos afecta, porque el sync copia la opción del principal
+tal como está guardada: el subsitio queda exactamente como el principal, antes y ahora.
+
+Tampoco nos afecta la migración nueva de Vigilante (`vigilante_blank_lists_restored`, una vez por
+sitio), que borra cuatro listas que las versiones anteriores vaciaban al guardar una pestaña y que
+no tienen campo en ninguna pantalla: métodos HTTP permitidos, usernames inseguros, endpoints REST
+públicos y roles de aprobación de registro. Si el sync llegara a copiar una de ellas vacía desde un
+sitio origen aún sin migrar, Vigilante la lee a través de `list_or_shipped()`, que cae al valor de
+fábrica cuando la lista llega vacía.
+
+### Corregido
+- **El aviso de segundo factor divergente marcaba sitios que no divergían.** Dos casos, los dos
+  comprobados contra `Vigilante_Settings::two_factor_site_requires()` de la 3.0.1:
+  - Vigilante 3.0.0 escribía un `"0"` literal en `enforced_roles` cuando se desmarcaba la primera
+    casilla del grupo de roles (el script del formulario lo añadía para las casillas sueltas y no
+    distinguía los grupos). La 3.0.1 ya no lo escribe, pero no limpia lo que ya estaba guardado, y
+    nuestro detector lo tomaba por un rol más. No es ningún rol: ahora se descarta.
+  - Con el 2FA activado y ningún rol real en `enforced_roles` (lista vacía, o solo `"0"`),
+    Vigilante no pide segundo factor a nadie, porque la intersección con los roles de la cuenta
+    siempre sale vacía. Lo contábamos como una política activa, y un sitio así salía como
+    divergente frente a uno con el 2FA apagado. Desde la 3.0.1 ese estado se puede guardar de
+    verdad desmarcando todos los roles.
+  - De paso, las exclusiones que `absint()` deja en `0` se ignoran: el usuario 0 no existe.
+
+### Tests
+- Cuatro casos nuevos en `tests/test-logic.php` para `two_factor_demand_of()`. Fallan sin la
+  corrección; los 62 asserts pasan.
+
 ## [2.0.8] - 2026-09-19
 
 Mantenimiento para **Vigilante 3.0.0**, con una corrección de compatibilidad que **no es

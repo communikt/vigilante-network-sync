@@ -369,10 +369,22 @@ class Vigsync_Detector {
 		$roles = isset( $two_factor['enforced_roles'] )
 			? array_map( 'strval', (array) $two_factor['enforced_roles'] )
 			: array( 'administrator', 'editor' );
+
+		// Vigilante 3.0.0 escrivia un "0" literal a la llista quan es desmarcava la
+		// primera casella del grup (corregit a la 3.0.1, però el que ja és desat no
+		// es neteja). No és cap rol, així que no demana res a ningú.
+		$roles = array_values( array_diff( $roles, array( '', '0' ) ) );
+
+		// Sense cap rol real, Vigilante no demana segon factor a ningú
+		// (`array_intersect()` buit), per molt que `enabled` sigui cert. Des de la
+		// 3.0.1 és un estat que es pot desar de debò desmarcant tots els rols.
+		if ( ! $roles ) {
+			return array( 'enabled' => false );
+		}
 		sort( $roles );
 
 		$excluded = isset( $two_factor['excluded_users'] )
-			? array_map( 'absint', (array) $two_factor['excluded_users'] )
+			? array_filter( array_map( 'absint', (array) $two_factor['excluded_users'] ) )
 			: array();
 		sort( $excluded );
 

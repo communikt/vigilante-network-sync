@@ -692,6 +692,47 @@ vigsync_assert(
 	'(n) uns rols forçats diferents SÍ són divergència'
 );
 
+// Vigilante 3.0.0 desava un "0" literal quan es desmarcava la primera casella del
+// grup de rols. No és cap rol: la demanda és la mateixa que sense el "0".
+$amb_zero                                                   = $demanda_base;
+$amb_zero['login_security']['two_factor']['enforced_roles'] = array( '0', 'editor', 'administrator' );
+
+vigsync_assert(
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $demanda_base ) ),
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $amb_zero ) ),
+	'(n) el "0" residual de Vigilante 3.0.0 no compta com a rol'
+);
+
+// 2FA activat però sense cap rol real: Vigilante no el demana a ningú, igual que
+// un site amb el 2FA apagat. Tant la llista buida (3.0.1) com el ["0"] (3.0.0).
+$sense_cap_rol                                                   = $demanda_base;
+$sense_cap_rol['login_security']['two_factor']['enforced_roles'] = array();
+
+vigsync_assert(
+	$apagat,
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $sense_cap_rol ) ),
+	'(n) enabled amb enforced_roles buit → no demana res'
+);
+
+$nomes_zero                                                   = $demanda_base;
+$nomes_zero['login_security']['two_factor']['enforced_roles'] = array( '0' );
+
+vigsync_assert(
+	$apagat,
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $nomes_zero ) ),
+	'(n) enabled amb enforced_roles ["0"] → no demana res'
+);
+
+// L'usuari 0 no existeix: una exclusió que absint() deixa en 0 no diferencia res.
+$exclusio_brossa                                                   = $demanda_base;
+$exclusio_brossa['login_security']['two_factor']['excluded_users'] = array( '7', 3, '', 'x' );
+
+vigsync_assert(
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $demanda_base ) ),
+	vigsync_call_private( 'Vigsync_Detector', 'two_factor_demand_of', array( $exclusio_brossa ) ),
+	'(n) exclusions que absint() deixa en 0 s\'ignoren'
+);
+
 // ---------------------------------------------------------------------------
 // should_block_request(): decisió de bloqueig de login al subsite.
 // ---------------------------------------------------------------------------

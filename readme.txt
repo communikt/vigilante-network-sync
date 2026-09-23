@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.8
+Stable tag: 2.0.9
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -102,6 +102,17 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.9 - 2026-09-23 =
+* **Corregido: el aviso de segundo factor divergente marcaba sitios que no divergían.** Vigilante
+  3.0.0 guardaba un `"0"` literal en la lista de roles del 2FA al desmarcar la primera casilla (la
+  3.0.1 ya no lo escribe, pero no limpia lo guardado), y se contaba como un rol más. Y un sitio con
+  el 2FA activado sin ningún rol real no pide segundo factor a nadie, pero se contaba como una
+  política activa. Los dos casos siguen ahora el criterio de Vigilante.
+* **Revisado y validado contra Vigilante 3.0.1** sobre el diff completo desde 3.0.0, sin cambios en
+  el sincronizador. Vigilante ya no fusiona sus listas con los valores de fábrica al leerlas; el
+  sync copia la opción del principal tal como está guardada, así que el subsitio queda igual que
+  el principal, antes y ahora.
 
 = 2.0.8 - 2026-09-19 =
 * **Corregido: en una red detrás de un proxy público, los subsitios veían a todos los visitantes

@@ -77,6 +77,8 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
   cuentas de toda la instalación; y la matrícula TOTP se busca en la tabla de todos los sitios
   que la cuenta puede alcanzar, de modo que copiar la configuración ya no deja a nadie fuera.
   La página de ajustes detecta esta situación, avisa y **lista los sitios divergentes**.
+  Compara lo que cada sitio **pide de verdad**, con el mismo criterio que Vigilante: un sitio
+  con el 2FA activado pero sin ningún rol marcado no pide nada a nadie y cuenta como apagado.
 - `email.additional_recipients` — quién recibe los avisos de un sitio es decisión de ese sitio.
 - `security_headers.csp.report_uri` (URL absoluta por sitio) — siempre se preserva.
 - Cualquier campo que Vigilante declare en `get_user_data_keys()` y que este plugin no conozca:
