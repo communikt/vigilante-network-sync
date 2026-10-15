@@ -14,6 +14,35 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.10] - 2026-10-15
+
+Mantenimiento para **Vigilante 3.0.7**, revisado sobre el diff completo 3.0.1 → 3.0.7 (seis
+publicaciones, treinta y cuatro ficheros, unas 13.000 líneas). **El sincronizador no necesita
+cambios**: `get_user_data_keys()`, `owns_shared_files()`, `can_write_shared_files()` y
+`two_factor_site_requires()` no se tocan, y los hooks de login de Vigilante conservan sus
+prioridades, así que el bloqueo de login de red (`login_init`, prioridad 0) sigue sin colisionar.
+
+### Cambiado
+- **Vigilante 3.0.7 retira «Protect wp-cron.php»** (`firewall.protect_wp_cron`). La regla
+  denegaba toda petición HTTP a `wp-cron.php`, también la del cron del servidor que llama a su
+  dirección con wget, curl o el panel del hosting, y las tareas programadas dejaban de ejecutarse.
+  En una red por subdirectorio el `.htaccess` es único, así que afectaba a todos los sitios.
+  Vigilante quita la regla al reescribir el fichero tras actualizar (desde el sitio principal) y
+  saca el ajuste de su esquema y de `get_shared_file_settings()`. Como leemos esa lista de
+  Vigilante en vez de duplicarla, el sync deja de preservar el valor de cada subsitio, y el
+  validador de Vigilante descarta la clave al guardar: el residuo desaparece de los subsitios con
+  la próxima sincronización. Mientras el principal la conserve guardada, el log mostrará esos
+  sitios como «ya sincronizado» (el mecanismo de la 2.0.7), no como error.
+- `file_integrity.excluded_paths` arranca vacío en las instalaciones nuevas y, desde la 3.0.2,
+  Vigilante guarda las rutas tal como se escriben (conserva `%20` y similares). Seguimos
+  propagando la lista del principal, y la comprobación de lo ya guardado pasa por el validador
+  real de Vigilante, así que cuadra igual.
+
+### Tests
+- El *stub* de `get_shared_file_settings()` refleja la lista de la 3.0.7, y un caso nuevo
+  comprueba que un ajuste retirado de esa lista deja de preservarse del destino. Los 63 asserts
+  pasan.
+
 ## [2.0.9] - 2026-09-23
 
 Mantenimiento para **Vigilante 3.0.1**, revisado sobre el diff completo 3.0.0 → 3.0.1 (trece

@@ -259,7 +259,9 @@ if ( ! class_exists( 'Vigilante_Settings' ) ) {
 			return array(
 				'security_headers' => true,
 				'wp_hardening'     => array( 'disallow_file_edit', 'disallow_file_mods', 'force_ssl_admin', 'force_ssl_login', 'wp_debug', 'disable_wp_cron' ),
-				'firewall'         => array( 'disable_directory_browsing', 'protect_wp_config', 'protect_wp_includes', 'protect_uploads_php', 'protect_sensitive_files', 'protect_wp_cron', 'limit_http_methods' ),
+				// Llista real de Vigilante 3.0.7: 'protect_wp_cron' es va retirar (bloquejava
+				// també el cron del servidor que crida wp-cron.php per la seva adreça).
+				'firewall'         => array( 'disable_directory_browsing', 'protect_wp_config', 'protect_wp_includes', 'protect_uploads_php', 'protect_sensitive_files', 'limit_http_methods', 'block_php_in_plugins', 'block_php_in_themes' ),
 			);
 		}
 
@@ -334,6 +336,7 @@ $source_98 = array(
 		'trusted_proxy_header' => 'HTTP_CF_CONNECTING_IP',
 		'trusted_proxies'      => array( '203.0.113.10', '198.51.100.0/24' ),
 		'protect_wp_config'    => true,
+		'protect_wp_cron'      => true,
 		'rate_limiting'        => array( 'enabled' => true, 'max_requests' => 120 ),
 	),
 	'security_headers' => array(
@@ -358,6 +361,7 @@ $existing_98 = array(
 		'trusted_proxy_header' => '',
 		'trusted_proxies'      => array(),
 		'protect_wp_config'    => false,
+		'protect_wp_cron'      => false,
 	),
 	'security_headers' => array(
 		'hsts' => array( 'enabled' => false ),
@@ -383,6 +387,10 @@ vigsync_assert( false, $p98['security_headers']['hsts']['enabled'], '(f) securit
 vigsync_assert( 'https://subsite/csp', $p98['security_headers']['csp']['report_uri'], '(f) CSP report_uri segueix sent el del destí' );
 vigsync_assert( false, $p98['firewall']['protect_wp_config'], '(f) firewall.protect_wp_config (.htaccess) preservat del destí' );
 vigsync_assert( false, $p98['wp_hardening']['force_ssl_admin'], '(f) wp_hardening.force_ssl_admin (wp-config) preservat del destí' );
+// Un ajust que Vigilante treu de la seva llista deixa de preservar-se: la llista es
+// llegeix de Vigilante, no la dupliquem. Vigilante 3.0.7 va retirar protect_wp_cron,
+// i el seu validador el descarta en desar, així que el residu del destí desapareix.
+vigsync_assert( true, $p98['firewall']['protect_wp_cron'], '(f) protect_wp_cron (retirat a Vigilante 3.0.7) ja no es preserva del destí' );
 
 // La resta de la mateixa secció SÍ es propaga (és PHP-runtime, per-site).
 vigsync_assert( array( 'enabled' => true, 'max_requests' => 120 ), $p98['firewall']['rate_limiting'], '(g) firewall.rate_limiting (PHP) es copia del principal' );

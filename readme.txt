@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.9
+Stable tag: 2.0.10
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -102,6 +102,14 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.10 - 2026-10-15 =
+* **Revisado y validado contra Vigilante 3.0.7** sobre el diff completo desde 3.0.1, sin cambios en
+  el sincronizador.
+* Vigilante 3.0.7 retira «Protect wp-cron.php», que bloqueaba también el cron del servidor y
+  paraba las tareas programadas (en una red, de todos los sitios). El sync deja de preservar ese
+  ajuste en cada subsitio, porque sigue la lista de Vigilante, y el residuo desaparece con la
+  próxima sincronización.
 
 = 2.0.9 - 2026-09-23 =
 * **Corregido: el aviso de segundo factor divergente marcaba sitios que no divergían.** Vigilante
