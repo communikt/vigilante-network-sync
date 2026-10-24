@@ -14,6 +14,35 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.11] - 2026-10-24
+
+Mantenimiento para **Vigilante 3.0.8**, revisado sobre el diff completo 3.0.7 → 3.0.8 (veintidós
+ficheros, unas 2.000 líneas, casi todo en Security Check y File Integrity). **El sincronizador no
+necesita cambios**: `class-settings.php` y `class-ip-utils.php` son idénticos a los de la 3.0.7, así
+que `get_user_data_keys()`, `get_shared_file_settings()`, `owns_shared_files()`,
+`can_write_shared_files()` y `two_factor_site_requires()` no se tocan, y en
+`class-login-security.php` solo cambia cómo se pinta el 404 del wp-admin oculto en `plugins_loaded`
+(hooks y prioridades iguales), así que el bloqueo de login de red (`login_init`, prioridad 0) sigue
+sin colisionar.
+
+### Cambiado
+- Cabecera `Vigilante compat` a 3.0.8. Sin cambios de código.
+
+### Notas de la revisión
+- La 3.0.8 corrige un error 500 con WPML en el 404 del wp-admin oculto: `wp_die()` en
+  `plugins_loaded` pasaba por filtros de plantilla antes de que WordPress creara el conmutador de
+  idioma. Nuestro bloqueo de login llama a `wp_die()` en `login_init`, cuando ese conmutador ya
+  existe, así que no le afecta.
+- Las novedades (detección de pantallas de firewall y de copias cacheadas en Security Check,
+  marcador de escaneo interrumpido y ajuste al límite de PHP en File Integrity) son por sitio y no
+  tocan `vigilante_options` ni los ficheros compartidos de la red.
+- `vigilante_login_rules_version`, que el sync borra en el destino, ya solo aparece en Vigilante
+  como `delete_option`: la limpieza es inofensiva y se mantiene por compatibilidad con versiones
+  antiguas.
+
+### Tests
+- Sin cambios. Los 63 asserts pasan.
+
 ## [2.0.10] - 2026-10-15
 
 Mantenimiento para **Vigilante 3.0.7**, revisado sobre el diff completo 3.0.1 → 3.0.7 (seis

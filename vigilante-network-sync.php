@@ -3,8 +3,8 @@
  * Plugin Name: Vigilante Network Sync
  * Plugin URI: https://github.com/communikt/vigilante-network-sync
  * Description: Capa de xarxa per a multisite que replica la configuració del plugin Vigilante des del site principal a la resta de sites, amb bloqueig de login unificat opcional. Complementa Vigilante; no el modifica.
- * Version: 2.0.10
- * Vigilante compat: 3.0.7
+ * Version: 2.0.11
+ * Vigilante compat: 3.0.8
  * Author: Albert Calzada (communikt)
  * Author URI: https://communikt.com
  * Text Domain: vigilante-network-sync
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Constants del plugin.
  */
-define( 'VIGSYNC_VERSION', '2.0.10' );
+define( 'VIGSYNC_VERSION', '2.0.11' );
 define( 'VIGSYNC_FILE', __FILE__ );
 define( 'VIGSYNC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'VIGSYNC_URL', plugin_dir_url( __FILE__ ) );

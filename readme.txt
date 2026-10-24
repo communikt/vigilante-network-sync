@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.10
+Stable tag: 2.0.11
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -102,6 +102,12 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.11 - 2026-10-24 =
+* **Revisado y validado contra Vigilante 3.0.8** sobre el diff completo desde 3.0.7, sin cambios en
+  el sincronizador: solo se actualiza la cabecera de compatibilidad. La 3.0.8 corrige un error 500
+  con WPML en el 404 del wp-admin oculto (`wp_die()` en `plugins_loaded`); nuestro bloqueo de login
+  usa `wp_die()` en `login_init`, cuando el conmutador de idioma ya existe, y no le afecta.
 
 = 2.0.10 - 2026-10-15 =
 * **Revisado y validado contra Vigilante 3.0.7** sobre el diff completo desde 3.0.1, sin cambios en
