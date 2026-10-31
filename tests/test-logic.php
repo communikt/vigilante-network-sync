@@ -6,6 +6,8 @@
  *  - Vigsync_Sync::build_payload()  (preservació de camps per-site, inclòs 2FA)
  *  - Vigsync_Sync::build_payload()  amb Vigilante 2.9.8+ (ajustos de fitxer compartit)
  *  - Vigsync_Login_Guard::should_block_request()  (decisió de bloqueig)
+ *  - Vigsync_Login_Guard::copy_is_valid() / replace_token() / cookie_header_is_clearing()
+ *    (rèplica del 404 del login ocult de Vigilante 3.0.9)
  *
  * Ús:  php tests/test-logic.php
  *
@@ -756,6 +758,75 @@ vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', 'rp', f
 vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', 'resetpass', false, false ), 'action=resetpass → passa' );
 vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', '', true, false ), 'usuari logat → passa' );
 vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', '', false, true ), 'interim-login → passa' );
+
+// ---------------------------------------------------------------------------
+// Rèplica del 404 de Vigilante 3.0.9 (helpers purs del login guard).
+// ---------------------------------------------------------------------------
+
+echo "\ncopy_is_valid():\n";
+$now  = 1_800_000_000;
+$copy = array(
+	'body'  => '<html>404</html>',
+	'type'  => 'text/html; charset=UTF-8',
+	'links' => array(),
+	'extra' => array(),
+	'token' => 'zzabcdefghijklmn',
+	'theme' => 'twentytwentyfive',
+	'home'  => 'https://example.com/es',
+	'taken' => $now - 3600,
+);
+vigsync_assert( true, Vigsync_Login_Guard::copy_is_valid( $copy, 'twentytwentyfive', 'https://example.com/es', $now ), 'còpia d\'avui, mateix tema i adreça → vàlida' );
+vigsync_assert( false, Vigsync_Login_Guard::copy_is_valid( $copy, 'twentytwentyfour', 'https://example.com/es', $now ), 'tema canviat → no vàlida (pàgina plana)' );
+vigsync_assert( false, Vigsync_Login_Guard::copy_is_valid( $copy, 'twentytwentyfive', 'https://example.com/fr', $now ), 'adreça canviada → no vàlida' );
+vigsync_assert( true, Vigsync_Login_Guard::copy_is_valid( array_merge( $copy, array( 'taken' => $now - 604800 ) ), 'twentytwentyfive', 'https://example.com/es', $now ), 'exactament una setmana → encara vàlida' );
+vigsync_assert( false, Vigsync_Login_Guard::copy_is_valid( array_merge( $copy, array( 'taken' => $now - 604801 ) ), 'twentytwentyfive', 'https://example.com/es', $now ), 'més d\'una setmana → caducada' );
+vigsync_assert( false, Vigsync_Login_Guard::copy_is_valid( array_merge( $copy, array( 'token' => 'zzabc' ) ), 'twentytwentyfive', 'https://example.com/es', $now ), 'token curt → no vàlida' );
+vigsync_assert( false, Vigsync_Login_Guard::copy_is_valid( array_merge( $copy, array( 'body' => '' ) ), 'twentytwentyfive', 'https://example.com/es', $now ), 'cos buit → no vàlida' );
+vigsync_assert( false, Vigsync_Login_Guard::copy_is_valid( false, 'twentytwentyfive', 'https://example.com/es', $now ), 'sense opció → no vàlida' );
+
+echo "\nreplace_token():\n";
+$body = '<p>No trobat: /zzabcdefghijklmn/</p><a href="/zzabcdefghijklmn/">x</a><span>ZZABCDEFGHIJKLMN</span>';
+vigsync_assert(
+	'<p>No trobat: /es/wp-login.php</p><a href="/es/wp-login.php">x</a><span>es/wp-login.php</span>',
+	Vigsync_Login_Guard::replace_token( $body, 'zzabcdefghijklmn', '/es/wp-login.php?redirect_to=%2Fes%2Fwp-admin%2F' ),
+	'ruta sense barra final, query fora, token també en majúscules'
+);
+vigsync_assert(
+	'<p>No trobat: /es/el-meu-slug/</p><a href="/es/el-meu-slug/">x</a><span>es/el-meu-slug</span>',
+	Vigsync_Login_Guard::replace_token( $body, 'zzabcdefghijklmn', '/es/el-meu-slug/' ),
+	'barra final només on la còpia la tenia i la petició la duia'
+);
+vigsync_assert(
+	'<p>No trobat: /es/%3Cscript%3Ealert%281%29%3C/script%3E</p>',
+	Vigsync_Login_Guard::replace_token( '<p>No trobat: /zzabcdefghijklmn/</p>', 'zzabcdefghijklmn', '/es/<script>alert(1)</script>' ),
+	'tot el que no és lletra, dígit o / . _ ~ % - surt com a %XX (la barra es conserva)'
+);
+vigsync_assert(
+	'<p>/es/categor%C3%ADa/</p>',
+	Vigsync_Login_Guard::replace_token( '<p>/zzabcdefghijklmn/</p>', 'zzabcdefghijklmn', '/es/categor%C3%ADa/#x' ),
+	'els %XX ja presents es conserven (no es tornen a codificar)'
+);
+vigsync_assert( '<p>sense token</p>', Vigsync_Login_Guard::replace_token( '<p>sense token</p>', 'zzabcdefghijklmn', '/es/wp-login.php' ), 'cos sense token → intacte' );
+
+echo "\ncookie_header_is_clearing():\n";
+vigsync_assert( false, Vigsync_Login_Guard::cookie_header_is_clearing( 'Set-Cookie: wordpress_test_cookie=WP%20Cookie%20check; path=/; secure', $now ), 'cookie de prova de wp-login.php → fora' );
+vigsync_assert( true, Vigsync_Login_Guard::cookie_header_is_clearing( 'Set-Cookie: a=; expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; path=/', $now ), 'Max-Age=0 → cookie d\'esborrat, es conserva' );
+vigsync_assert( false, Vigsync_Login_Guard::cookie_header_is_clearing( 'Set-Cookie: a=b; Max-Age=3600; path=/', $now ), 'Max-Age positiu → fora' );
+vigsync_assert( true, Vigsync_Login_Guard::cookie_header_is_clearing( 'Set-Cookie: a=; Max-Age=5; Max-Age=0', $now ), 'diversos Max-Age: compta l\'últim' );
+vigsync_assert( true, Vigsync_Login_Guard::cookie_header_is_clearing( 'Set-Cookie: a=; Max-Age=0x; expires=Thu, 01 Jan 1970 00:00:01 GMT', $now ), 'Max-Age que no és enter s\'ignora i decideix Expires' );
+vigsync_assert( false, Vigsync_Login_Guard::cookie_header_is_clearing( 'Set-Cookie: a=b; expires=Fri, 01 Jan 2100 00:00:00 GMT', $now ), 'Expires futur → fora' );
+vigsync_assert( false, Vigsync_Login_Guard::cookie_header_is_clearing( 'Content-Type: text/html', $now ), 'una capçalera que no és Set-Cookie → false' );
+
+echo "\nsafe_charset() i plain_404_html():\n";
+vigsync_assert( 'UTF-8', Vigsync_Login_Guard::safe_charset( 'UTF-8' ), 'UTF-8 passa net' );
+vigsync_assert( 'UTF-8', Vigsync_Login_Guard::safe_charset( '' ), 'buit → UTF-8' );
+vigsync_assert( 'utf-8script', Vigsync_Login_Guard::safe_charset( 'utf-8"><script' ), 'només [A-Za-z0-9_-]' );
+// Literal de Vigilante 3.0.9, class-login-security.php, send_plain_404(): ha de ser byte a byte igual.
+vigsync_assert(
+	'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width"><title>404 Not Found</title></head><body><h1>Page not found</h1><p>The page you are looking for does not exist.</p></body></html>',
+	Vigsync_Login_Guard::plain_404_html( 'UTF-8' ),
+	'pàgina plana idèntica a la de Vigilante 3.0.9'
+);
 
 // ---------------------------------------------------------------------------
 // Resum.

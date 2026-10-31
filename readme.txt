@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.11
+Stable tag: 2.0.12
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -23,7 +23,7 @@ sitio y no tiene panel de red; este plugin añade esa capa que le falta.
   pero configurable por si los IDs cambian).
 * **Login unificado por bloqueo** (opcional): el login solo se hace en el sitio principal;
   los subsitios responden **404** a cualquier intento de acceso (`wp-login.php` y `slug`)
-  **sin revelar el slug secreto**. Así el **2FA se configura una sola vez** y la cookie de
+  **sin revelar el slug secreto**, con la misma página que sirve Vigilante. Así el **2FA se configura una sola vez** y la cookie de
   auth de red da acceso al resto.
 * **No hace nada si Vigilante no está activo** y está diseñado para **no romper el acceso**
   (diseño *fail-open*; el sitio principal nunca se bloquea).
@@ -102,6 +102,15 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.12 - 2026-10-31 =
+* **Corregido: el 404 de los subsitios vuelve a ser idéntico al de Vigilante.** Vigilante 3.0.9
+  responde al login oculto con una copia de la página 404 del tema (o una página plana fija) y sin
+  cookies; el bloqueo de red respondía con la página antigua (`wp_die()`), que se distinguía de una
+  URL inexistente y dejaba pasar la cookie de prueba de wp-login.php. Ahora reproduce la misma copia
+  y, sin copia, la misma página plana byte a byte.
+* **Revisado y validado contra Vigilante 3.0.9** sobre el diff completo desde 3.0.8: los puntos de
+  acoplamiento del sincronizador no cambian.
 
 = 2.0.11 - 2026-10-24 =
 * **Revisado y validado contra Vigilante 3.0.8** sobre el diff completo desde 3.0.7, sin cambios en
@@ -278,6 +287,10 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.12 =
+Con Vigilante 3.0.9 el bloqueo de login de los subsitios respondía con una página distinta de la
+de Vigilante y de un 404 real, lo que delataba el bloqueo. Actualiza junto con Vigilante 3.0.9.
 
 = 2.0.7 =
 Corrige un error de diagnóstico: con Vigilante 2.11.0+ el log podía marcar error de escritura en

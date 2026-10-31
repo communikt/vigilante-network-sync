@@ -13,6 +13,15 @@
  * dispara igualment `login_init`). Així el login només funciona al principal i
  * el slug "secret" no es revela mai des d'un subsite.
  *
+ * Des de Vigilante 3.0.9 aquell 404 és la CÒPIA de la pàgina 404 del tema, que
+ * Vigilante captura per site (opció `vigilante_hidden_404_copy`) i serveix a tots
+ * els camins bloquejats, sense cap cookie, perquè wp-login.php no es pugui
+ * distingir d'una pàgina que no existeix. Aquí es reprodueix el mateix
+ * comportament amb la mateixa còpia (el mètode de Vigilante és privat), i sense
+ * còpia vàlida se serveix la mateixa pàgina plana que Vigilante, byte a byte.
+ * Fins a la v2.0.11 responíem amb `wp_die()`, que era la pàgina que Vigilante
+ * donava fins a la 3.0.8: comparar-la amb un 404 real delatava el bloqueig.
+ *
  * Disseny "fail-open": si falla qualsevol precondició, no fa res i el login
  * normal segueix funcionant. El site principal MAI es bloqueja.
  *
@@ -147,7 +156,8 @@ class Vigsync_Login_Guard {
 	}
 
 	/**
-	 * Bloqueja la pantalla de login del subsite amb un 404 idèntic al de Vigilante.
+	 * Bloqueja la pantalla de login del subsite amb un 404 idèntic al de Vigilante
+	 * (vegeu send_not_found()).
 	 *
 	 * No redirigeix (per no revelar el slug del principal): qualsevol intent de
 	 * carregar el login d'un subsite "no existeix".
@@ -169,16 +179,241 @@ class Vigsync_Login_Guard {
 			return;
 		}
 
-		// Mateix mecanisme de bloqueig que Vigilante: 404 real + wp_die.
+		self::send_not_found();
+	}
+
+	/**
+	 * Opció on Vigilante (3.0.9+) desa la còpia de la pàgina 404 del site.
+	 *
+	 * Mateix nom que `Vigilante_Login_Security::NOT_FOUND_OPTION`.
+	 */
+	const VIGILANTE_NOT_FOUND_OPTION = 'vigilante_hidden_404_copy';
+
+	/**
+	 * Serveix el 404 del login ocult tal com el serveix Vigilante.
+	 *
+	 * Si Vigilante arriba a exposar el seu propi mètode (`send_not_found()` és
+	 * privat a la 3.0.9; se li ha demanat un punt d'entrada públic), es crida el
+	 * seu i prou: `is_callable()` sobre un mètode privat des de fora retorna
+	 * false, així que el camí propi només s'usa mentre no hi hagi alternativa.
+	 *
+	 * Rèplica de `Vigilante_Login_Security::send_not_found()` (3.0.9): la còpia
+	 * de la pàgina 404 del site si és vàlida per al tema i l'adreça actuals,
+	 * amb la ruta demanada al lloc del token, les capçaleres que WordPress envia
+	 * amb un 404 (Content-Type, Link) i cap cookie que no sigui d'esborrat; i si
+	 * no hi ha còpia, la pàgina plana de Vigilante, idèntica.
+	 */
+	private static function send_not_found() {
+		if ( is_callable( array( 'Vigilante_Login_Security', 'send_not_found' ) ) ) {
+			Vigilante_Login_Security::send_not_found();
+			exit;
+		}
+
 		status_header( 404 );
 		nocache_headers();
-		wp_die(
-			esc_html__( 'The page you are looking for does not exist.', 'vigilante-network-sync' ),
-			esc_html__( '404 Not Found', 'vigilante-network-sync' ),
-			array(
-				'response'  => 404,
-				'back_link' => false,
-			)
+		self::keep_only_clearing_cookies();
+
+		$copy = get_option( self::VIGILANTE_NOT_FOUND_OPTION );
+		if ( ! self::copy_is_valid( $copy, (string) get_option( 'stylesheet' ), (string) get_option( 'home' ), time() ) ) {
+			self::send_plain_404();
+		}
+
+		$request_uri = ( class_exists( 'Vigilante_IP_Utils' ) && method_exists( 'Vigilante_IP_Utils', 'request_uri' ) )
+			? (string) Vigilante_IP_Utils::request_uri()
+			: ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '' );
+
+		$body = self::replace_token( $copy['body'], $copy['token'], $request_uri );
+		if ( ! is_string( $body ) ) {
+			self::send_plain_404();
+		}
+
+		if ( ! headers_sent() ) {
+			header( 'Content-Type: ' . self::one_line( $copy['type'] ) );
+			foreach ( (array) ( isset( $copy['links'] ) ? $copy['links'] : array() ) as $link ) {
+				$link = self::one_line( $link );
+				if ( '' !== $link ) {
+					header( 'Link: ' . $link, false );
+				}
+			}
+			if ( isset( $copy['extra']['X-UA-Compatible'] ) && '' !== self::one_line( $copy['extra']['X-UA-Compatible'] ) ) {
+				header( 'X-UA-Compatible: ' . self::one_line( $copy['extra']['X-UA-Compatible'] ) );
+			}
+		}
+
+		// La pàgina 404 que aquest mateix site ha servit a un visitant sense sessió,
+		// reproduïda tal com Vigilante la va capturar; l'única part d'aquesta petició
+		// que hi entra és la ruta, escapada dins de replace_token(). Mateixa excepció
+		// que fa Vigilante (class-login-security.php, send_not_found()).
+		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		exit;
+	}
+
+	/**
+	 * La pàgina plana del login ocult de Vigilante, byte a byte.
+	 *
+	 * Deliberadament sense traduir i sense cap filtre de plantilla, com fa
+	 * Vigilante: ha de ser la MATEIXA resposta que donaria ell.
+	 */
+	private static function send_plain_404() {
+		status_header( 404 );
+		nocache_headers();
+		self::keep_only_clearing_cookies();
+
+		$charset = self::safe_charset( (string) get_option( 'blog_charset' ) );
+		if ( ! headers_sent() ) {
+			header( 'Content-Type: text/html; charset=' . $charset );
+		}
+		echo self::plain_404_html( $charset ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML fix sense cap dada de la petició; el charset passa per safe_charset().
+		exit;
+	}
+
+	/**
+	 * Deixa a la resposta només les cookies que n'esborren una.
+	 *
+	 * wp-login.php envia `wordpress_test_cookie` (i `wp_lang`) abans de
+	 * `login_init`, i un 404 real no envia cap cookie: delatava el bloqueig.
+	 * Només es conserva una cookie ja caducada (Max-Age <= 0 o Expires passat),
+	 * que és com un altre plugin tanca una sessió abans d'arribar aquí.
+	 */
+	private static function keep_only_clearing_cookies() {
+		if ( headers_sent() ) {
+			return;
+		}
+		$keep = array();
+		foreach ( headers_list() as $line ) {
+			if ( self::cookie_header_is_clearing( $line, time() ) ) {
+				$keep[] = $line;
+			}
+		}
+		header_remove( 'Set-Cookie' );
+		foreach ( $keep as $line ) {
+			header( $line, false );
+		}
+	}
+
+	/*
+	 * ------------------------------------------------------------------
+	 * Helpers PURS (sense WordPress), testejables des de tests/test-logic.php.
+	 * Repliquen el criteri de Vigilante 3.0.9 línia a línia; si Vigilante el
+	 * canvia, cal revisar-los (la rutina de revisió mira class-login-security.php).
+	 * ------------------------------------------------------------------
+	 */
+
+	/**
+	 * Indica si una còpia de Vigilante descriu encara la pàgina 404 d'aquest site.
+	 *
+	 * Rèplica de `Vigilante_Login_Security::not_found_copy_is_valid()`: tema i
+	 * adreça iguals als actuals, i no més d'una setmana d'antiguitat.
+	 *
+	 * @param mixed  $copy       Contingut de l'opció `vigilante_hidden_404_copy`.
+	 * @param string $stylesheet Tema actiu (`get_option( 'stylesheet' )`).
+	 * @param string $home       Adreça del site (`get_option( 'home' )`).
+	 * @param int    $now        Instant actual (time()).
+	 * @return bool
+	 */
+	public static function copy_is_valid( $copy, $stylesheet, $home, $now ) {
+		return is_array( $copy )
+			&& isset( $copy['body'], $copy['type'], $copy['token'], $copy['theme'], $copy['home'], $copy['taken'] )
+			&& is_string( $copy['body'] ) && '' !== $copy['body']
+			&& is_string( $copy['token'] ) && strlen( $copy['token'] ) >= 8
+			&& ( (int) $now - (int) $copy['taken'] ) <= 604800 // WEEK_IN_SECONDS.
+			&& (string) $stylesheet === (string) $copy['theme']
+			&& (string) $home === (string) $copy['home'];
+	}
+
+	/**
+	 * Posa la ruta demanada al lloc del token amb què es va capturar la còpia.
+	 *
+	 * Rèplica del tractament de `Vigilante_Login_Security::send_not_found()`:
+	 * la ruta (sense query ni fragment) amb tot el que no sigui lletra, dígit o
+	 * `/ . _ ~ % -` escrit com a %XX, d'una sola passada i sense distingir
+	 * majúscules; la barra final només si la petició en duia.
+	 *
+	 * @param string $body        Cos de la còpia.
+	 * @param string $token       Token de la captura (p. ex. "zzab12cd34ef56gh").
+	 * @param string $request_uri URI demanada.
+	 * @return string|null Null si PCRE falla (com fa Vigilante: llavors, pàgina plana).
+	 */
+	public static function replace_token( $body, $token, $request_uri ) {
+		$path    = (string) strtok( (string) $request_uri, '?#' );
+		$trimmed = (string) preg_replace_callback(
+			'~[^A-Za-z0-9/._\~%-]~',
+			function ( $c ) {
+				return rawurlencode( $c[0] );
+			},
+			trim( $path, '/' )
 		);
+		$slash   = ( '' !== $trimmed && '/' === substr( $path, -1 ) ) ? '/' : '';
+		// Després de l'escapat només queden caràcters segurs; htmlspecialchars és
+		// la capa defensiva equivalent a l'esc_html() de Vigilante, sense WordPress.
+		$safe    = htmlspecialchars( $trimmed, ENT_QUOTES, 'UTF-8' );
+		$result  = preg_replace_callback(
+			'~' . preg_quote( (string) $token, '~' ) . '(/?)~i',
+			function ( $m ) use ( $safe, $slash ) {
+				return $safe . ( '' !== $m[1] ? $slash : '' );
+			},
+			(string) $body
+		);
+		return is_string( $result ) ? $result : null;
+	}
+
+	/**
+	 * Indica si una línia `Set-Cookie:` esborra la cookie (ja caducada).
+	 *
+	 * Rèplica de `Vigilante_Login_Security::keep_only_clearing_cookies()`: un
+	 * Max-Age guanya sobre Expires i, si n'hi ha més d'un, compta l'últim, com
+	 * fan els navegadors; un Max-Age que no sigui un enter s'ignora.
+	 *
+	 * @param string $line Línia de capçalera tal com la dona headers_list().
+	 * @param int    $now  Instant actual (time()).
+	 * @return bool False per a qualsevol línia que no sigui Set-Cookie.
+	 */
+	public static function cookie_header_is_clearing( $line, $now ) {
+		$line = (string) $line;
+		if ( 0 !== stripos( $line, 'Set-Cookie:' ) ) {
+			return false;
+		}
+		if ( preg_match_all( '/;\s*max-age\s*=\s*(-?\d+)\s*(?=;|$)/i', $line, $m ) ) {
+			return (int) end( $m[1] ) <= 0;
+		}
+		if ( preg_match( '/;\s*expires=([^;]+)/i', $line, $m ) ) {
+			$when = strtotime( trim( $m[1] ) );
+			return false !== $when && $when < (int) $now;
+		}
+		return false;
+	}
+
+	/**
+	 * Charset net per a la capçalera i el <meta>, com el calcula Vigilante.
+	 *
+	 * @param string $charset Valor de `blog_charset`.
+	 * @return string
+	 */
+	public static function safe_charset( $charset ) {
+		$charset = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $charset );
+		return '' === $charset ? 'UTF-8' : $charset;
+	}
+
+	/**
+	 * HTML de la pàgina plana del login ocult de Vigilante 3.0.9, byte a byte.
+	 *
+	 * @param string $charset Charset ja net (safe_charset()).
+	 * @return string
+	 */
+	public static function plain_404_html( $charset ) {
+		return '<!DOCTYPE html><html><head><meta charset="' . htmlspecialchars( (string) $charset, ENT_QUOTES, 'UTF-8' ) . '"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width"><title>404 Not Found</title></head><body><h1>Page not found</h1><p>The page you are looking for does not exist.</p></body></html>';
+	}
+
+	/**
+	 * Un valor de capçalera en una sola línia (primer valor si n'hi ha diversos).
+	 *
+	 * @param mixed $value Valor.
+	 * @return string
+	 */
+	private static function one_line( $value ) {
+		if ( is_array( $value ) ) {
+			$value = reset( $value );
+		}
+		return is_string( $value ) ? trim( (string) preg_replace( '/[\r\n]+/', ' ', $value ) ) : '';
 	}
 }

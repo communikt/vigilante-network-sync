@@ -14,6 +14,43 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.12] - 2026-10-31
+
+Compatibilidad con **Vigilante 3.0.9**, revisada sobre el diff completo 3.0.8 → 3.0.9 (dieciocho
+ficheros, unas 1.000 líneas). Los puntos de acoplamiento del sincronizador no cambian
+(`class-settings.php` solo añade un suelo de 7 días a `expire_days` dentro de `validate_options()`,
+que el sync ya atraviesa, así que converge igual), pero **Vigilante cambia la respuesta de su login
+oculto y nuestro bloqueo tenía que seguirla**: es el segundo caso, tras la 3.0.0, en que Vigilante
+cambia el significado de algo que replicábamos sin tocar ninguna línea nuestra.
+
+### Corregido
+- **El 404 de los subsitios vuelve a ser idéntico al de Vigilante.** Desde la 3.0.9, Vigilante
+  responde a `wp-login.php`, `wp-admin` y los atajos con una copia de la página 404 del tema,
+  capturada por sitio en la opción `vigilante_hidden_404_copy` (pidiéndose a sí mismo una URL con
+  un token aleatorio) y renovada a diario, al cambiar de tema y tras actualizaciones; sin copia,
+  con una página plana fija; y en ambos casos sin cookies, porque wp-login.php envía
+  `wordpress_test_cookie` antes de `login_init`. Nuestro bloqueo respondía con `wp_die()`, la
+  página que Vigilante usaba hasta la 3.0.8: en un subsitio, `wp-login.php` se distinguía de una
+  URL inexistente y de lo que responde el principal, y dejaba pasar la cookie. Ahora
+  `Vigsync_Login_Guard::send_not_found()` reproduce el mismo comportamiento con la misma copia del
+  propio subsitio (validez por tema, dirección y antigüedad de una semana; ruta pedida en lugar del
+  token, escapada igual; cabeceras Content-Type, Link y X-UA-Compatible; solo cookies de borrado)
+  y, sin copia válida, sirve byte a byte la misma página plana de Vigilante. El método de Vigilante
+  es privado; si expone un punto de entrada público (se le ha pedido), el plugin lo usará en lugar
+  de la réplica (`is_callable()` lo detecta solo).
+
+### Tests
+- Helpers puros nuevos, sin WordPress, con tests: `copy_is_valid()`, `replace_token()` (incluida una
+  ruta con `<script>` y otra con `%XX` ya codificados), `cookie_header_is_clearing()` (Max-Age gana
+  a Expires, cuenta el último, uno no entero se ignora), `safe_charset()` y `plain_404_html()`
+  comparado con el literal de Vigilante 3.0.9. 87 asserts.
+
+### Notas de la revisión 3.0.9
+- Novedades que no nos afectan: fila «PHP security fixes» en Security Check (release exacta contra
+  PHP2Shell, 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35); el firewall ya no admite en la lista negra una
+  dirección del propio sitio (paraba WP-Cron); `/login.php` bloqueado como atajo; `expire_days`
+  no baja de 7; `gethostbynamel()` deshabilitado ya no rompe Security Check.
+
 ## [2.0.11] - 2026-10-24
 
 Mantenimiento para **Vigilante 3.0.8**, revisado sobre el diff completo 3.0.7 → 3.0.8 (veintidós

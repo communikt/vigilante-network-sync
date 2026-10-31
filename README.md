@@ -11,7 +11,8 @@ no tiene panel de red; este plugin añade esa capa que le falta:
   el ID 1, pero configurable por si los IDs cambian).
 - Ofrece, **como opción**, un **login unificado por bloqueo**: el login solo se hace en el
   sitio principal y los subsitios responden **404** a cualquier intento de acceso
-  (`wp-login.php` y `slug`) **sin revelar el slug secreto**, para que el **2FA se configure
+  (`wp-login.php` y `slug`) **sin revelar el slug secreto**, con la misma página 404 que
+  sirve Vigilante (desde Vigilante 3.0.9, la del tema), para que el **2FA se configure
   una sola vez** (la cookie de auth de red da acceso al resto).
 - **No hace nada si Vigilante no está activo** y está diseñado para **no romper el
   acceso** (diseño *fail-open*).
