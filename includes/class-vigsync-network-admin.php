@@ -134,7 +134,10 @@ class Vigsync_Network_Admin {
 				'source_site_id'      => $source_id,
 				'login_block_enabled' => $block_enabled,
 				'sync_ip_lists'       => ! empty( $_POST['sync_ip_lists'] ),
-				'sync_custom_login'   => ! empty( $_POST['sync_custom_login'] ),
+				// Amb el bloqueig actiu el slug ha de viatjar (vegeu
+				// Vigsync_Sync::login_slug_travels()); es desa així perquè la casella
+				// no quedi desmarcada en desactivar el bloqueig més endavant.
+				'sync_custom_login'   => Vigsync_Sync::login_slug_travels( ! empty( $_POST['sync_custom_login'] ), $block_enabled ),
 				'sync_two_factor'     => ! empty( $_POST['sync_two_factor'] ),
 				'notify_email'        => $email,
 			)
@@ -260,6 +263,8 @@ class Vigsync_Network_Admin {
 		$id_was_invalid     = Vigsync_Settings::source_site_id_was_invalid();
 		$two_factor_network = $vigilante_active && Vigsync_Detector::two_factor_is_network_wide();
 		$two_factor_diverge = $two_factor_network ? Vigsync_Detector::sites_with_divergent_two_factor() : array();
+		$login_block_on     = ! empty( $settings['login_block_enabled'] );
+		$sites_no_login     = ( $vigilante_active && $login_block_on ) ? Vigsync_Detector::sites_without_custom_login() : array();
 
 		require VIGSYNC_INCLUDES_DIR . 'views/network-settings-page.php';
 	}

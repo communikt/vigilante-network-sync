@@ -167,6 +167,77 @@ class Vigsync_Detector {
 	}
 
 	/**
+	 * Indica si una config de Vigilante té el login ocult actiu.
+	 *
+	 * Helper PUR (testejable amb stubs). Mateix criteri amb què Vigilante decideix
+	 * si en aquell site registra el login ocult (`init_custom_login()`) i, des de la
+	 * 3.0.9, si hi captura la còpia de la pàgina 404 del tema: mòdul
+	 * `login_security` encès i `custom_login_url` no buit.
+	 *
+	 * @param mixed $config Config de Vigilante d'un site (`vigilante_options`).
+	 * @return bool
+	 */
+	public static function config_has_custom_login( $config ) {
+		if ( ! is_array( $config ) || empty( $config['modules']['login_security'] ) ) {
+			return false;
+		}
+
+		$slug = isset( $config['login_security']['custom_login_url'] ) ? $config['login_security']['custom_login_url'] : '';
+
+		return is_string( $slug ) && '' !== trim( $slug );
+	}
+
+	/**
+	 * Subsites sense el login ocult de Vigilante actiu.
+	 *
+	 * Amb el bloqueig de login als subsites, cada subsite ha de tenir el login
+	 * ocult de Vigilante (el mateix slug que el principal, que hi porta la
+	 * sincronització): és el que fa que Vigilante hi capturi la còpia de la pàgina
+	 * 404 del tema i que hi respongui 404 a wp-admin i als atalls `/login` i
+	 * `/wp-login.php`, que el nostre bloqueig no toca. Sense el slug, el bloqueig
+	 * serveix la pàgina plana (es distingeix d'una URL inexistent) i `wp-admin`
+	 * redirigeix a wp-login.php en lloc de donar 404.
+	 *
+	 * Un site sense config de Vigilante hi compta: Vigilante hi fa servir els
+	 * defaults, que tenen el slug buit.
+	 *
+	 * ⚠️ Recorre tots els sites. Només es crida des de la pàgina d'ajustos.
+	 *
+	 * @return array<int,string> ID del site => etiqueta (domini + ruta).
+	 */
+	public static function sites_without_custom_login() {
+		if ( ! self::is_vigilante_active() ) {
+			return array();
+		}
+
+		$source_id = Vigsync_Settings::get_source_site_id();
+		$missing   = array();
+
+		$sites = get_sites(
+			array(
+				'number'   => 0,
+				'archived' => 0,
+				'deleted'  => 0,
+				'spam'     => 0,
+			)
+		);
+
+		foreach ( $sites as $site ) {
+			$site_id = (int) $site->blog_id;
+
+			if ( $site_id === $source_id ) {
+				continue;
+			}
+
+			if ( ! self::config_has_custom_login( self::get_site_config( $site_id ) ) ) {
+				$missing[ $site_id ] = untrailingslashit( $site->domain . $site->path );
+			}
+		}
+
+		return $missing;
+	}
+
+	/**
 	 * Slug de login personalitzat configurat al site principal (sanititzat).
 	 *
 	 * Es llegeix sempre en viu de la config del principal; mai es hardcodeja.

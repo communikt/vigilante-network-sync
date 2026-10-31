@@ -829,6 +829,49 @@ vigsync_assert(
 );
 
 // ---------------------------------------------------------------------------
+// login_slug_travels() i config_has_custom_login(): el bloqueig de subsites
+// necessita el login ocult de Vigilante a cada subsite (2.0.13). Sense el slug,
+// Vigilante 3.0.9 no hi captura la còpia del 404 del tema i el bloqueig serveix
+// la pàgina plana, que es distingeix d'una URL inexistent.
+// ---------------------------------------------------------------------------
+
+echo "\nlogin_slug_travels():\n";
+vigsync_assert( true, Vigsync_Sync::login_slug_travels( true, false ), 'casella marcada, sense bloqueig → viatja' );
+vigsync_assert( false, Vigsync_Sync::login_slug_travels( false, false ), 'casella desmarcada, sense bloqueig → no viatja' );
+vigsync_assert( true, Vigsync_Sync::login_slug_travels( false, true ), 'casella desmarcada però bloqueig actiu → viatja igualment' );
+vigsync_assert( true, Vigsync_Sync::login_slug_travels( true, true ), 'casella i bloqueig → viatja' );
+
+// I el que en surt a build_payload(): amb el slug forçat, el del principal arriba al destí.
+$payload = vigsync_call_private(
+	'Vigsync_Sync',
+	'build_payload',
+	array(
+		array(
+			'modules'        => array( 'login_security' => true ),
+			'login_security' => array( 'custom_login_url' => 'acces-principal' ),
+		),
+		array(
+			'modules'        => array( 'login_security' => true ),
+			'login_security' => array( 'custom_login_url' => '' ),
+		),
+		false,
+		Vigsync_Sync::login_slug_travels( false, true ),
+		false,
+	)
+);
+vigsync_assert( 'acces-principal', $payload['login_security']['custom_login_url'], 'bloqueig actiu → el slug del principal arriba al subsite sense slug' );
+
+echo "\nconfig_has_custom_login():\n";
+vigsync_assert( true, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array( 'custom_login_url' => 'acces' ) ) ), 'mòdul encès i slug → sí' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => false ), 'login_security' => array( 'custom_login_url' => 'acces' ) ) ), 'mòdul apagat → no (Vigilante no registra el login ocult)' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'login_security' => array( 'custom_login_url' => 'acces' ) ) ), 'sense secció modules → no' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array( 'custom_login_url' => '' ) ) ), 'slug buit → no' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array( 'custom_login_url' => '   ' ) ) ), 'slug només d\'espais → no' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array() ) ), 'sense la clau custom_login_url → no' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( null ), 'site sense config de Vigilante → no (defaults amb slug buit)' );
+vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array( 'custom_login_url' => array( 'x' ) ) ) ), 'slug que no és cadena → no' );
+
+// ---------------------------------------------------------------------------
 // Resum.
 // ---------------------------------------------------------------------------
 

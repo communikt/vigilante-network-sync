@@ -132,7 +132,10 @@ class Vigsync_Sync {
 		}
 
 		$sync_ip_lists  = (bool) Vigsync_Settings::get( 'sync_ip_lists', false );
-		$sync_login     = (bool) Vigsync_Settings::get( 'sync_custom_login', true );
+		$sync_login     = self::login_slug_travels(
+			(bool) Vigsync_Settings::get( 'sync_custom_login', true ),
+			(bool) Vigsync_Settings::get( 'login_block_enabled', false )
+		);
 		$sync_two_factor = (bool) Vigsync_Settings::get( 'sync_two_factor', false );
 
 		$log   = array();
@@ -346,6 +349,24 @@ class Vigsync_Sync {
 		}
 
 		return $payload;
+	}
+
+	/**
+	 * Decideix si el slug de custom-login es copia als subsites.
+	 *
+	 * Helper PUR. La casella «Copiar també el slug de custom-login» decideix, tret
+	 * que el bloqueig de login als subsites estigui actiu: aleshores el slug viatja
+	 * sempre. Sense ell, Vigilante no registra el login ocult al subsite, no hi
+	 * captura la còpia de la pàgina 404 del tema (3.0.9+) i no hi respon 404 a
+	 * wp-admin ni als atalls; el bloqueig serviria la pàgina plana, que es distingeix
+	 * d'una URL inexistent. Ho va preguntar en Fernando Tellado el 2026-10-31.
+	 *
+	 * @param bool $sync_custom_login   Valor de la casella.
+	 * @param bool $login_block_enabled Si el bloqueig de login als subsites és actiu.
+	 * @return bool
+	 */
+	public static function login_slug_travels( $sync_custom_login, $login_block_enabled ) {
+		return (bool) $sync_custom_login || (bool) $login_block_enabled;
 	}
 
 	/**

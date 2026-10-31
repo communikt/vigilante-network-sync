@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.12
+Stable tag: 2.0.13
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -102,6 +102,14 @@ en el log del sync. Además, cualquier campo que Vigilante declare como dato del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.13 - 2026-10-31 =
+* **Corregido: con el bloqueo de login activo, el slug de custom-login viaja siempre a los
+  subsitios.** Si la casilla del slug estaba desmarcada y un subsitio no tenía el login oculto de
+  Vigilante, Vigilante 3.0.9 no capturaba allí la copia de la página 404 del tema: el bloqueo servía
+  la página plana (distinguible de una URL inexistente) y `wp-admin` redirigía a wp-login.php en
+  lugar de dar 404. Ahora el bloqueo fuerza la copia del slug y la pantalla lista los subsitios que
+  aún no lo tienen.
 
 = 2.0.12 - 2026-10-31 =
 * **Corregido: el 404 de los subsitios vuelve a ser idéntico al de Vigilante.** Vigilante 3.0.9
@@ -287,6 +295,11 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.13 =
+Si usas el bloqueo de login de los subsitios con la casilla del slug de custom-login desmarcada,
+tras actualizar pulsa «Sincronitza ara»: el slug tiene que llegar a cada subsitio para que su 404
+sea idéntico al de Vigilante 3.0.9.
 
 = 2.0.12 =
 Con Vigilante 3.0.9 el bloqueo de login de los subsitios respondía con una página distinta de la

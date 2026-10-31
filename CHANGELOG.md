@@ -14,6 +14,37 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.13] - 2026-10-31
+
+Sigue a la 2.0.12 y cierra un caso que señaló Fernando Tellado al responder a la petición del
+punto de entrada público: **la copia del 404 del tema solo existe en los sitios que tienen el
+login oculto de Vigilante**. La compatibilidad con Vigilante sigue siendo la **3.0.9**.
+
+### Corregido
+- **Con el bloqueo de login de los subsitios activo, el slug de custom-login se copia siempre.**
+  `custom_login_url` está en `get_user_data_keys()`, pero la casilla «Copiar también el slug de
+  custom-login» (activada por defecto) lo copiaba igualmente; si alguien la desmarcaba, un subsitio
+  sin slug propio quedaba sin el login oculto de Vigilante. Ahí Vigilante 3.0.9 no registra
+  `init_custom_login()`, así que no captura la copia de la página 404 del tema
+  (`vigilante_hidden_404_copy`) ni responde 404 a `wp-admin` y a los atajos `/login` y
+  `/wp-login.php`: nuestro bloqueo servía la página plana, distinguible de `/es/no-existe/`, y
+  `/es/wp-admin` redirigía a `wp-login.php`. Ahora `Vigsync_Sync::login_slug_travels()` hace que
+  el slug viaje siempre mientras el bloqueo esté activo (en la sincronización y al guardar), y la
+  casilla aparece marcada y bloqueada con una nota.
+
+### Añadido
+- **Aviso de subsitios sin la URL de login de Vigilante.** Con el bloqueo activo, la pantalla de
+  ajustes lista los subsitios cuyo login oculto no está activo (módulo `login_security` apagado o
+  slug vacío, mismo criterio que Vigilante: `Vigsync_Detector::config_has_custom_login()`) y pide
+  «Sincronitza ara». Una red que venga de la 2.0.12 con la casilla desmarcada lo verá hasta que
+  sincronice.
+
+### Tests
+- 13 asserts nuevos (100 en total): tabla de verdad de `login_slug_travels()`, el slug del
+  principal llegando a un subsitio sin slug con el bloqueo activo, y los casos de
+  `config_has_custom_login()` (módulo apagado, sin `modules`, slug vacío o de espacios, clave
+  ausente, sitio sin config, valor que no es cadena).
+
 ## [2.0.12] - 2026-10-31
 
 Compatibilidad con **Vigilante 3.0.9**, revisada sobre el diff completo 3.0.8 → 3.0.9 (dieciocho

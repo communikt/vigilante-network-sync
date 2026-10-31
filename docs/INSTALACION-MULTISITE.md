@@ -78,6 +78,10 @@ de login al final**. Cada bloque termina con una comprobación.
 11. **Activa «Bloquejar el login als subsites».** Solo es activable si la red es de
     subdirectorio y el principal tiene custom-login configurado. A partir de aquí los
     subsitios responden **404** a `wp-login.php` y al slug, **sin revelar el slug secreto**.
+    Con el bloqueo activo, la casilla del slug de custom-login queda marcada y bloqueada
+    (desde 2.0.13): el slug tiene que llegar a cada subsitio para que Vigilante capture allí
+    la copia de la página 404 del tema. Si la pantalla lista subsitios «sin la URL de login
+    de Vigilante», vuelve a pulsar «Sincronitza ara».
 
 12. **Verifica en incógnito:**
     - `https://subsitio/wp-login.php` → 404. ✅

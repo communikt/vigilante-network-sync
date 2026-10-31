@@ -10,6 +10,8 @@
  * @var bool        $custom_login_on  Si el principal té custom-login actiu.
  * @var string      $source_slug      Slug de login del principal.
  * @var bool        $id_was_invalid   Si l'ID desat era invàlid (fallback aplicat).
+ * @var bool        $login_block_on   Si el bloqueig de login als subsites és actiu.
+ * @var array       $sites_no_login   Subsites sense el login ocult de Vigilante (ID => etiqueta).
  * @var array|null  $this->action_result Resultat de la darrera acció.
  *
  * @package Vigilante_Network_Sync
@@ -134,9 +136,14 @@ $sites  = get_sites(
 				<th scope="row"><?php esc_html_e( 'Sincronització', 'vigilante-network-sync' ); ?></th>
 				<td>
 					<label>
-						<input type="checkbox" name="sync_custom_login" value="1" <?php checked( ! empty( $settings['sync_custom_login'] ) ); ?>>
+						<input type="checkbox" name="sync_custom_login" value="1" <?php checked( ! empty( $settings['sync_custom_login'] ) || $login_block_on ); ?> <?php disabled( $login_block_on ); ?>>
 						<?php esc_html_e( 'Copiar també el slug de custom-login al destí', 'vigilante-network-sync' ); ?>
-					</label><br>
+					</label>
+					<?php if ( $login_block_on ) : ?>
+						<input type="hidden" name="sync_custom_login" value="1">
+						<span class="description"><?php esc_html_e( '(obligatori mentre el bloqueig de login als subsites estigui actiu)', 'vigilante-network-sync' ); ?></span>
+					<?php endif; ?>
+					<br>
 					<label>
 						<input type="checkbox" name="sync_ip_lists" value="1" <?php checked( ! empty( $settings['sync_ip_lists'] ) ); ?>>
 						<?php esc_html_e( 'Copiar també les llistes d\'IPs i User-Agents (whitelist/blacklist)', 'vigilante-network-sync' ); ?>
@@ -188,6 +195,19 @@ $sites  = get_sites(
 						<p class="description vigsync-bad"><?php esc_html_e( 'Deshabilitat: cal que el site principal tingui el custom-login de Vigilante configurat.', 'vigilante-network-sync' ); ?></p>
 					<?php else : ?>
 						<p class="description"><?php esc_html_e( 'Els subsites respondran un 404 a qualsevol intent de login (wp-login.php i slug), sense revelar el slug del principal. Inicia sessió un sol cop al principal; la cookie de xarxa et dona accés a tots els subsites.', 'vigilante-network-sync' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Mentre estigui actiu, el slug de custom-login es copia sempre als subsites: sense ell, Vigilante no hi captura la còpia de la pàgina 404 del tema ni hi respon 404 a wp-admin, i el bloqueig es distingiria d\'una pàgina inexistent.', 'vigilante-network-sync' ); ?></p>
+					<?php endif; ?>
+					<?php if ( $sites_no_login ) : ?>
+						<p class="description vigsync-bad">
+							<strong><?php esc_html_e( 'Subsites sense la URL de login de Vigilante.', 'vigilante-network-sync' ); ?></strong>
+							<?php
+							printf(
+								/* translators: %s: llista de sites, separats per comes */
+								esc_html__( 'Aquests subsites encara no tenen el custom-login de Vigilante: %s. El bloqueig hi serveix una pàgina 404 plana que es distingeix d\'una pàgina inexistent, i wp-admin hi redirigeix a wp-login.php en lloc de donar 404. Fes «Sincronitza ara» per copiar-hi el slug del principal.', 'vigilante-network-sync' ),
+								esc_html( implode( ', ', $sites_no_login ) )
+							);
+							?>
+						</p>
 					<?php endif; ?>
 				</td>
 			</tr>

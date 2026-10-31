@@ -44,7 +44,11 @@ no tiene panel de red; este plugin añade esa capa que le falta:
 3. **Login unificado (opcional):** activa **«Bloquejar el login als subsites»**. Solo es
    posible en redes de **subdirectorio** y si el sitio principal tiene configurado el
    *custom-login* de Vigilante. Los subsitios responderán 404 a cualquier intento de login
-   (sin revelar el slug); el login real solo funciona en el principal.
+   (sin revelar el slug); el login real solo funciona en el principal. Mientras el bloqueo
+   esté activo, el slug de custom-login **se copia siempre** a los subsitios (desde 2.0.13):
+   sin él, Vigilante no captura en el subsitio la copia de la página 404 del tema ni responde
+   404 a `wp-admin`, y el bloqueo se distinguiría de una página inexistente. Si algún
+   subsitio aún no lo tiene, la pantalla lo lista; basta con «Sincronitza ara».
 
 ### Qué NO se copia a los subsitios
 
