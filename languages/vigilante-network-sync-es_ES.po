@@ -1,10 +1,10 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Vigilante Network Sync 2.0.13\n"
+"Project-Id-Version: Vigilante Network Sync 2.0.14\n"
 "Report-Msgid-Bugs-To: https://github.com/communikt/vigilante-network-sync/"
 "issues\n"
-"POT-Creation-Date: 2026-10-31 21:35+0100\n"
-"PO-Revision-Date: 2026-10-31 21:35+0100\n"
+"POT-Creation-Date: 2026-11-08 07:48+0100\n"
+"PO-Revision-Date: 2026-11-08 07:50+0100\n"
 "Last-Translator: Albert Calzada <albert@communikt.com>\n"
 "Language-Team: Español\n"
 "Language: es_ES\n"
@@ -156,31 +156,38 @@ msgid ""
 msgstr ""
 "Sincronización completada: %1$d de %2$d sitios actualizados correctamente."
 
-#: includes/class-vigsync-sync.php:214
+#: includes/class-vigsync-sync.php:219
 msgid "Ja estava sincronitzat (sense canvis)."
 msgstr "Ya estaba sincronizado (sin cambios)."
 
-#: includes/class-vigsync-sync.php:221
+#: includes/class-vigsync-sync.php:226
 msgid "Configuració sincronitzada."
 msgstr "Configuración sincronizada."
 
 #. translators: %s: llista d'entrades d'IP descartades, separades per comes
-#: includes/class-vigsync-sync.php:226
+#: includes/class-vigsync-sync.php:231
 #, php-format
 msgid "Entrades d'IP descartades perquè no poden coincidir mai: %s."
 msgstr "Entradas de IP descartadas porque no pueden coincidir nunca: %s."
 
-#: includes/class-vigsync-sync.php:232
+#: includes/class-vigsync-sync.php:238
 msgid ""
-"Ja estava sincronitzat: Vigilante descarta del payload el que el seu esquema "
-"no declara, i el resultat ja era el que hi havia al destí."
-msgstr ""
-"Ya estaba sincronizado: Vigilante descarta del payload lo que su esquema no "
-"declara, y el resultado ya era el que había en el destino."
+"Ja estava sincronitzat: el validador de Vigilante adapta el payload en desar-"
+"lo, i el resultat ja era el que hi havia al destí."
+msgstr "Ya estaba sincronizado: el validador de Vigilante adapta el payload al guardarlo, y el resultado ya era el que había en el destino."
 
-#: includes/class-vigsync-sync.php:235
+#: includes/class-vigsync-sync.php:242
 msgid "update_option ha retornat false (possible error d'escriptura)."
 msgstr "update_option ha devuelto false (posible error de escritura)."
+
+#. translators: %s: línies de la llista negra, separades per comes
+#: includes/class-vigsync-sync.php:392
+#, php-format
+msgid ""
+"Vigilante no ha desat en aquest site aquestes línies de la llista negra "
+"perquè bloquejarien persones o el mateix site (al principal es conserven si "
+"ja hi eren desades): %s."
+msgstr "Vigilante no ha guardado en este sitio estas líneas de la lista negra porque bloquearían a personas o al propio sitio (en el principal se conservan si ya estaban guardadas): %s."
 
 #: includes/views/network-settings-page.php:37
 msgid ""
@@ -293,7 +300,8 @@ msgstr "Copiar también el slug de custom-login al destino"
 
 #: includes/views/network-settings-page.php:144
 msgid "(obligatori mentre el bloqueig de login als subsites estigui actiu)"
-msgstr "(obligatorio mientras el bloqueo de login en los subsitios esté activo)"
+msgstr ""
+"(obligatorio mientras el bloqueo de login en los subsitios esté activo)"
 
 #: includes/views/network-settings-page.php:149
 msgid "Copiar també les llistes d'IPs i User-Agents (whitelist/blacklist)"
@@ -430,7 +438,11 @@ msgid ""
 "Mentre estigui actiu, el slug de custom-login es copia sempre als subsites: "
 "sense ell, Vigilante no hi captura la còpia de la pàgina 404 del tema ni hi "
 "respon 404 a wp-admin, i el bloqueig es distingiria d'una pàgina inexistent."
-msgstr "Mientras esté activo, el slug de custom-login se copia siempre a los subsitios: sin él, Vigilante no captura allí la copia de la página 404 del tema ni responde 404 en wp-admin, y el bloqueo se distinguiría de una página inexistente."
+msgstr ""
+"Mientras esté activo, el slug de custom-login se copia siempre a los "
+"subsitios: sin él, Vigilante no captura allí la copia de la página 404 del "
+"tema ni responde 404 en wp-admin, y el bloqueo se distinguiría de una página "
+"inexistente."
 
 #: includes/views/network-settings-page.php:202
 msgid "Subsites sense la URL de login de Vigilante."
@@ -444,7 +456,11 @@ msgid ""
 "bloqueig hi serveix una pàgina 404 plana que es distingeix d'una pàgina "
 "inexistent, i wp-admin hi redirigeix a wp-login.php en lloc de donar 404. "
 "Fes «Sincronitza ara» per copiar-hi el slug del principal."
-msgstr "Estos subsitios todavía no tienen el custom-login de Vigilante: %s. El bloqueo sirve en ellos una página 404 plana que se distingue de una página inexistente, y wp-admin redirige a wp-login.php en lugar de dar 404. Pulsa «Sincronizar ahora» para copiarles el slug del principal."
+msgstr ""
+"Estos subsitios todavía no tienen el custom-login de Vigilante: %s. El "
+"bloqueo sirve en ellos una página 404 plana que se distingue de una página "
+"inexistente, y wp-admin redirige a wp-login.php en lugar de dar 404. Pulsa "
+"«Sincronizar ahora» para copiarles el slug del principal."
 
 #: includes/views/network-settings-page.php:215
 msgid "Email d'avisos"
@@ -570,3 +586,10 @@ msgid ""
 msgstr ""
 "Vigilante Network Sync requiere una instalación WordPress multisite. "
 "Desactiva el plugin."
+
+#~ msgid ""
+#~ "Ja estava sincronitzat: Vigilante descarta del payload el que el seu "
+#~ "esquema no declara, i el resultat ja era el que hi havia al destí."
+#~ msgstr ""
+#~ "Ya estaba sincronizado: Vigilante descarta del payload lo que su esquema "
+#~ "no declara, y el resultado ya era el que había en el destino."

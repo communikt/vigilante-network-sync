@@ -6,6 +6,7 @@
  *  - Vigsync_Sync::build_payload()  (preservació de camps per-site, inclòs 2FA)
  *  - Vigsync_Sync::build_payload()  amb Vigilante 2.9.8+ (ajustos de fitxer compartit)
  *  - Vigsync_Login_Guard::should_block_request()  (decisió de bloqueig)
+ *  - Vigsync_Sync::lines_not_stored()  (línies que Vigilante 3.0.11+ no desa al destí)
  *  - Vigsync_Login_Guard::copy_is_valid() / replace_token() / cookie_header_is_clearing()
  *    (rèplica del 404 del login ocult de Vigilante 3.0.9)
  *
@@ -870,6 +871,61 @@ vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'module
 vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array() ) ), 'sense la clau custom_login_url → no' );
 vigsync_assert( false, Vigsync_Detector::config_has_custom_login( null ), 'site sense config de Vigilante → no (defaults amb slug buit)' );
 vigsync_assert( false, Vigsync_Detector::config_has_custom_login( array( 'modules' => array( 'login_security' => true ), 'login_security' => array( 'custom_login_url' => array( 'x' ) ) ) ), 'slug que no és cadena → no' );
+
+// ---------------------------------------------------------------------------
+// lines_not_stored(): línies de la llista negra que el validador de Vigilante
+// 3.0.11+ no desa en el subsite (les noves que bloquejarien persones o el site).
+// ---------------------------------------------------------------------------
+
+echo "\nlines_not_stored():\n";
+$fw = function ( $ua, $ip ) {
+	return array(
+		'firewall' => array(
+			'ua_blacklist' => $ua,
+			'ip_blacklist' => $ip,
+		),
+	);
+};
+vigsync_assert( array(), Vigsync_Sync::lines_not_stored( $fw( array( 'MJ12bot' ), array( '203.0.113.7' ) ), $fw( array( 'MJ12bot' ), array( '203.0.113.7' ) ) ), 'tot desat → cap línia' );
+vigsync_assert(
+	array( 'firewall.ua_blacklist: Mozilla/5.0' ),
+	Vigsync_Sync::lines_not_stored( $fw( array( 'MJ12bot', 'Mozilla/5.0' ), array() ), $fw( array( 'MJ12bot' ), array() ) ),
+	'línia de User-Agent esporgada → es reporta amb la seva clau'
+);
+vigsync_assert(
+	array( 'firewall.ip_blacklist: 127.0.0.1' ),
+	Vigsync_Sync::lines_not_stored( $fw( array(), array( '203.0.113.7', '127.0.0.1' ) ), $fw( array(), array( '203.0.113.7' ) ) ),
+	'adreça del propi site esporgada → es reporta'
+);
+vigsync_assert(
+	array(),
+	Vigsync_Sync::lines_not_stored( $fw( array( ' MJ12bot ', 'AhrefsBot' ), array() ), $fw( array( 'AhrefsBot', 'MJ12bot' ), array() ) ),
+	'espais als extrems i un altre ordre → no és cap descart (array_values del validador)'
+);
+vigsync_assert(
+	array( 'firewall.ua_blacklist: Safari' ),
+	Vigsync_Sync::lines_not_stored( $fw( array( 'Safari', 'Safari', '' ), array() ), $fw( array(), array() ) ),
+	'línia repetida → un sol cop; línia buida → ignorada'
+);
+vigsync_assert(
+	array( 'firewall.ua_blacklist: Safari', 'firewall.ip_blacklist: 127.0.0.1' ),
+	Vigsync_Sync::lines_not_stored( $fw( array( 'Safari' ), array( '127.0.0.1' ) ), array( 'modules' => array() ) ),
+	'el validador no torna la secció → tot el que s\'hi enviava es reporta'
+);
+vigsync_assert( array(), Vigsync_Sync::lines_not_stored( array( 'modules' => array() ), $fw( array(), array() ) ), 'payload sense llistes (no es copien) → cap línia' );
+vigsync_assert(
+	array(),
+	Vigsync_Sync::lines_not_stored( $fw( array( array( 'x' ) ), array() ), $fw( array(), array() ) ),
+	'entrada que no és escalar → s\'ignora, no peta'
+);
+vigsync_assert(
+	array(),
+	Vigsync_Sync::lines_not_stored(
+		array( 'firewall' => array( 'ua_whitelist' => array( 'Mozilla/5.0' ) ) ),
+		array( 'firewall' => array( 'ua_whitelist' => array() ) )
+	),
+	'llistes que Vigilante no esporga (ua_whitelist) → fora de l\'abast'
+);
 
 // ---------------------------------------------------------------------------
 // Resum.

@@ -14,6 +14,45 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.14] - 2026-11-08
+
+Compatibilidad con **Vigilante 3.0.11** (y 3.0.10), revisada sobre los dos diffs completos:
+3.0.9 → 3.0.10 (dieciocho ficheros, ~1.100 líneas añadidas) y 3.0.10 → 3.0.11 (diecinueve
+ficheros y uno nuevo, `class-ua-utils.php`; ~2.750 líneas añadidas). No hacía falta cambiar código
+para que el sync siga funcionando, pero la 3.0.11 cambia lo que se guarda al copiar las listas, y
+el log tenía que decirlo.
+
+### Puntos de acoplamiento revisados
+- `class-settings.php`: esquema, valores por defecto, `get_user_data_keys()` y
+  `get_shared_file_settings()` iguales; `validate_options()` solo añade el bloque nuevo de la
+  lista negra (abajo).
+- `class-login-security.php`: solo añade `vigilante_2fa_locked` a `CONTROLLED_REJECTIONS`.
+  `send_not_found()` sigue siendo privada; `not_found_copy_is_valid()`,
+  `keep_only_clearing_cookies()` y la forma de `vigilante_hidden_404_copy` no cambian, así que la
+  réplica de la 2.0.12 sigue siendo idéntica. Hooks y prioridades del login iguales.
+- `class-ip-utils.php`: añade `strip_port()` (proxies que escriben `IP:puerto`) dentro de
+  `client_from_chain()`; `split_list()`, `request_uri()` y `peer_is_trusted_proxy()` iguales.
+
+### Mejorado
+- **El log nombra las líneas de la lista negra que Vigilante no guarda en un subsitio.** Desde la
+  3.0.11, `validate_options()` (el `sanitize_callback` de `vigilante_options`, por el que pasa
+  nuestro `update_option()` dentro de `switch_to_blog()`) descarta las líneas **nuevas** de
+  `firewall.ua_blacklist` que bloquearían navegadores normales, el navegador de quien guarda o el
+  propio WordPress (`Vigilante_UA_Utils::filter_blacklist()`), y las de `firewall.ip_blacklist`
+  que son una dirección del propio sitio. Una línea ya guardada se conserva. Con «Copiar listas»
+  activada, una línea antigua del principal no llegaba a un subsitio que no la tuviera, y la
+  segunda sincronización daba «ya sincronizado» atribuyendo la diferencia al esquema. Ahora
+  `Vigsync_Sync::lines_not_stored()` (lógica pura) compara el payload con su versión saneada
+  dentro del subsitio y el log nombra cada línea, en cada sincronización: el veredicto de
+  Vigilante depende también del navegador del superadministrador que sincroniza.
+- El mensaje de «ya sincronizado» tras un `update_option()` que devuelve `false` dice ahora que
+  el validador de Vigilante adapta el payload, sin atribuirlo solo a las claves fuera de esquema.
+
+### Tests
+- 9 asserts nuevos (109 en total) para `lines_not_stored()`: nada descartado, línea de
+  User-Agent y dirección propia descartadas, espacios y otro orden, repetidas y vacías, sección
+  ausente en el saneado, payload sin listas, entrada no escalar y listas fuera del alcance.
+
 ## [2.0.13] - 2026-10-31
 
 Sigue a la 2.0.12 y cierra un caso que señaló Fernando Tellado al responder a la petición del

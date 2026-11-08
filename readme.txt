@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.13
+Stable tag: 2.0.14
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -98,10 +98,24 @@ No por defecto. Se preservan por sitio las listas de IPs y de User-Agents, la CS
 `report-uri`, la configuración de 2FA y los destinatarios adicionales de avisos; hay una
 casilla para copiar también las listas. Al copiarlas, las entradas de IP que nunca podrían
 coincidir se descartan con el mismo validador que usa Vigilante 2.9.9 al guardar y se nombran
-en el log del sync. Además, cualquier campo que Vigilante declare como dato del usuario del
+en el log del sync. Desde Vigilante 3.0.11, Vigilante tampoco guarda en un subsitio las líneas
+nuevas de la lista negra que bloquearían a personas o al propio sitio, y el log también las
+nombra. Además, cualquier campo que Vigilante declare como dato del usuario del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.14 - 2026-11-08 =
+* **Revisado y validado contra Vigilante 3.0.11** (y 3.0.10) sobre el diff completo desde 3.0.9:
+  el esquema, los campos de datos del usuario, la réplica del 404 del login oculto y los hooks de
+  login no cambian.
+* **Mejorado: el log nombra las líneas de la lista negra que Vigilante no guarda en un
+  subsitio.** Desde la 3.0.11, Vigilante descarta al guardar las líneas nuevas de la lista negra
+  de User-Agents que bloquearían a personas o al propio sitio, y las direcciones del propio sitio
+  de la lista negra de IPs. Con la casilla de copiar listas, una línea antigua del principal no
+  llegaba a un subsitio que no la tuviera, en silencio. Ahora el log la nombra en cada
+  sincronización, y el mensaje de «ya sincronizado» deja de atribuir la diferencia solo al
+  esquema.
 
 = 2.0.13 - 2026-10-31 =
 * **Corregido: con el bloqueo de login activo, el slug de custom-login viaja siempre a los
@@ -295,6 +309,10 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.14 =
+Compatibilidad validada con Vigilante 3.0.11. Si copias las listas de IPs y User-Agents, el log
+del sync dice ahora qué líneas de la lista negra no guarda Vigilante en cada subsitio.
 
 = 2.0.13 =
 Si usas el bloqueo de login de los subsitios con la casilla del slug de custom-login desmarcada,

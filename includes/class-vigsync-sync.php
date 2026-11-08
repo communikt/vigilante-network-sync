@@ -208,6 +208,11 @@ class Vigsync_Sync {
 			// validesa que Vigilante 2.9.9+ aplica al seu formulari.
 			$rejected_ips = $sync_ip_lists ? self::strip_unmatchable_ips( $payload ) : array();
 
+			// Vigilante 3.0.11+ no desa les línies noves de la llista negra que
+			// bloquejarien persones o el mateix site. Sense la casella, les llistes
+			// són les del destí, ja desades, i no n'hi pot descartar cap.
+			$not_stored = $sync_ip_lists ? self::lines_vigilante_will_drop( $payload ) : array();
+
 			// Si el contingut és idèntic, update_option retorna false; ho tractem com "omès".
 			if ( $payload === $existing ) {
 				$result['status']  = 'skipped';
@@ -227,9 +232,11 @@ class Vigsync_Sync {
 							implode( ', ', $rejected_ips )
 						);
 					}
+					$result['message'] .= self::not_stored_note( $not_stored );
 				} elseif ( self::already_stored( $payload, $existing ) ) {
 					$result['status']  = 'skipped';
-					$result['message'] = __( 'Ja estava sincronitzat: Vigilante descarta del payload el que el seu esquema no declara, i el resultat ja era el que hi havia al destí.', 'vigilante-network-sync' );
+					$result['message'] = __( 'Ja estava sincronitzat: el validador de Vigilante adapta el payload en desar-lo, i el resultat ja era el que hi havia al destí.', 'vigilante-network-sync' )
+						. self::not_stored_note( $not_stored );
 				} else {
 					$result['status']  = 'error';
 					$result['message'] = __( 'update_option ha retornat false (possible error d\'escriptura).', 'vigilante-network-sync' );
@@ -283,6 +290,108 @@ class Vigsync_Sync {
 		}
 
 		return $sanitized === $existing;
+	}
+
+	/**
+	 * Llistes que el validador de Vigilante esporga en desar (3.0.11+).
+	 *
+	 * Des de la 3.0.11, `Vigilante_Settings::validate_options()` treu de la llista
+	 * negra de User-Agents les línies que bloquejarien navegadors normals, el
+	 * navegador de qui desa o el mateix WordPress, i de la llista negra d'IPs les
+	 * adreces del propi site. NOMÉS les que el site no tenia desades: una línia
+	 * antiga es conserva. Com que el validador és el `sanitize_callback` de
+	 * l'opció i el sync hi passa dins de `switch_to_blog()`, una línia antiga del
+	 * principal no arriba a un subsite que no la tingués, i fins ara ho feia en
+	 * silenci.
+	 *
+	 * Estructura: secció => llista de claus.
+	 *
+	 * @var array
+	 */
+	const VIGILANTE_FILTERED_LISTS = array(
+		'firewall' => array( 'ua_blacklist', 'ip_blacklist' ),
+	);
+
+	/**
+	 * Línies del payload que Vigilante no desarà en el site actual.
+	 *
+	 * Es refà el sanejat amb el validador de Vigilante, dins del site destí, i es
+	 * compara. El veredicte de Vigilante sobre una línia de User-Agent depèn també
+	 * del navegador del superadministrador que prem «Sincronitza ara»: per això es
+	 * calcula a cada sincronització i no un cop per sempre.
+	 *
+	 * Sense validador disponible no es pot saber, i es retorna una llista buida.
+	 *
+	 * @param array $payload Payload que es desarà.
+	 * @return string[] Línies etiquetades amb la seva secció i clau.
+	 */
+	private static function lines_vigilante_will_drop( $payload ) {
+		$sanitized = Vigsync_Detector::sanitize_like_vigilante( $payload );
+
+		return null === $sanitized ? array() : self::lines_not_stored( $payload, $sanitized );
+	}
+
+	/**
+	 * Compara les llistes esporgades per Vigilante entre el payload i el que es desa.
+	 *
+	 * Lògica pura. Una línia que arriba al site amb una altra forma (el validador
+	 * també la saneja) compta com a no desada tal com venia, que és el que diu la
+	 * nota del log.
+	 *
+	 * @param array $payload   Payload enviat.
+	 * @param array $sanitized El mateix payload tal com Vigilante el desa.
+	 * @return string[] Línies etiquetades amb la seva secció i clau, sense repetir.
+	 */
+	public static function lines_not_stored( $payload, $sanitized ) {
+		$dropped = array();
+
+		foreach ( self::VIGILANTE_FILTERED_LISTS as $section => $keys ) {
+			foreach ( $keys as $key ) {
+				if ( ! isset( $payload[ $section ][ $key ] ) || ! is_array( $payload[ $section ][ $key ] ) ) {
+					continue;
+				}
+
+				$kept = array();
+				if ( isset( $sanitized[ $section ][ $key ] ) && is_array( $sanitized[ $section ][ $key ] ) ) {
+					foreach ( $sanitized[ $section ][ $key ] as $line ) {
+						if ( is_scalar( $line ) ) {
+							$kept[] = trim( (string) $line );
+						}
+					}
+				}
+
+				foreach ( $payload[ $section ][ $key ] as $line ) {
+					if ( ! is_scalar( $line ) ) {
+						continue;
+					}
+					$line = trim( (string) $line );
+					if ( '' === $line || in_array( $line, $kept, true ) ) {
+						continue;
+					}
+					$dropped[] = $section . '.' . $key . ': ' . $line;
+				}
+			}
+		}
+
+		return array_values( array_unique( $dropped ) );
+	}
+
+	/**
+	 * Nota del log per a les línies que Vigilante no ha desat.
+	 *
+	 * @param string[] $not_stored Línies etiquetades.
+	 * @return string Text precedit d'un espai, o buit si no n'hi ha cap.
+	 */
+	private static function not_stored_note( $not_stored ) {
+		if ( empty( $not_stored ) ) {
+			return '';
+		}
+
+		return ' ' . sprintf(
+			/* translators: %s: línies de la llista negra, separades per comes */
+			__( 'Vigilante no ha desat en aquest site aquestes línies de la llista negra perquè bloquejarien persones o el mateix site (al principal es conserven si ja hi eren desades): %s.', 'vigilante-network-sync' ),
+			implode( ', ', $not_stored )
+		);
 	}
 
 	/**

@@ -1,15 +1,15 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Albert Calzada (communikt)
-# This file is distributed under the same license as the Vigilante Network Sync 2.0.13 package.
+# This file is distributed under the same license as the Vigilante Network Sync package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Vigilante Network Sync 2.0.13\n"
+"Project-Id-Version: Vigilante Network Sync 2.0.14\n"
 "Report-Msgid-Bugs-To: https://github.com/communikt/vigilante-network-sync/"
 "issues\n"
-"POT-Creation-Date: 2026-10-31 21:35+0100\n"
+"POT-Creation-Date: 2026-11-08 07:48+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -138,28 +138,37 @@ msgid ""
 "Sincronització completada: %1$d de %2$d sites actualitzats correctament."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:214
+#: includes/class-vigsync-sync.php:219
 msgid "Ja estava sincronitzat (sense canvis)."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:221
+#: includes/class-vigsync-sync.php:226
 msgid "Configuració sincronitzada."
 msgstr ""
 
 #. translators: %s: llista d'entrades d'IP descartades, separades per comes
-#: includes/class-vigsync-sync.php:226
+#: includes/class-vigsync-sync.php:231
 #, php-format
 msgid "Entrades d'IP descartades perquè no poden coincidir mai: %s."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:232
+#: includes/class-vigsync-sync.php:238
 msgid ""
-"Ja estava sincronitzat: Vigilante descarta del payload el que el seu esquema "
-"no declara, i el resultat ja era el que hi havia al destí."
+"Ja estava sincronitzat: el validador de Vigilante adapta el payload en desar-"
+"lo, i el resultat ja era el que hi havia al destí."
 msgstr ""
 
-#: includes/class-vigsync-sync.php:235
+#: includes/class-vigsync-sync.php:242
 msgid "update_option ha retornat false (possible error d'escriptura)."
+msgstr ""
+
+#. translators: %s: línies de la llista negra, separades per comes
+#: includes/class-vigsync-sync.php:392
+#, php-format
+msgid ""
+"Vigilante no ha desat en aquest site aquestes línies de la llista negra "
+"perquè bloquejarien persones o el mateix site (al principal es conserven si "
+"ja hi eren desades): %s."
 msgstr ""
 
 #: includes/views/network-settings-page.php:37
