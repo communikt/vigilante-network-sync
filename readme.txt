@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.14
+Stable tag: 2.0.15
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -100,10 +100,23 @@ casilla para copiar también las listas. Al copiarlas, las entradas de IP que nu
 coincidir se descartan con el mismo validador que usa Vigilante 2.9.9 al guardar y se nombran
 en el log del sync. Desde Vigilante 3.0.11, Vigilante tampoco guarda en un subsitio las líneas
 nuevas de la lista negra que bloquearían a personas o al propio sitio, y el log también las
-nombra. Además, cualquier campo que Vigilante declare como dato del usuario del
+nombra (desde Vigilante 3.0.12, con el motivo: por ejemplo, qué navegadores bloquearía). Además, cualquier campo que Vigilante declare como dato del usuario del
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.0.15 - 2026-11-19 =
+* **Revisado y validado contra Vigilante 3.0.14** (y 3.0.12 y 3.0.13) sobre los diffs completos
+  desde 3.0.11: las funciones de Vigilante que usa este plugin no cambian. La única clave nueva
+  del esquema, `firewall.protect_upgrade_folders` (3.0.13), es un ajuste de fichero compartido y
+  el sync ya la preserva en cada subsitio porque lee esa lista del propio Vigilante.
+* **Mejorado: el log usa el aviso de Vigilante sobre las líneas que no guarda.** Desde la 3.0.12,
+  Vigilante dispara `vigilante_firewall_lines_dropped` con las líneas de la lista negra que
+  descarta al guardar. El sync la escucha durante su escritura y ya no llama al validador de
+  Vigilante a mano, de modo que la acción salta una sola vez por subsitio también para cualquier
+  otro plugin que la escuche. El log dice ahora el motivo de cada línea (los navegadores que
+  bloquearía, el navegador de quien sincroniza o el propio WordPress). Con Vigilante 3.0.11 se
+  mantiene el cálculo anterior.
 
 = 2.0.14 - 2026-11-08 =
 * **Revisado y validado contra Vigilante 3.0.11** (y 3.0.10) sobre el diff completo desde 3.0.9:
@@ -309,6 +322,10 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.0.15 =
+Compatibilidad validada con Vigilante 3.0.14. El log del sync dice por qué Vigilante no guarda
+cada línea de la lista negra, y la acción de Vigilante salta una sola vez por subsitio.
 
 = 2.0.14 =
 Compatibilidad validada con Vigilante 3.0.11. Si copias las listas de IPs y User-Agents, el log

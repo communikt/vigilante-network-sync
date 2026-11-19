@@ -52,6 +52,30 @@ class Vigsync_Detector {
 	}
 
 	/**
+	 * Primera versió de Vigilante que avisa de les línies que descarta en desar.
+	 *
+	 * Des de la 3.0.12, `Vigilante_Settings::validate_options()` dispara
+	 * `vigilante_firewall_lines_dropped` amb les línies de la llista negra que no
+	 * desa (petició nostra, B130 al seu changelog).
+	 */
+	const DROPPED_LINES_ACTION_SINCE = '3.0.12';
+
+	/**
+	 * Indica si la versió de Vigilante carregada dispara `vigilante_firewall_lines_dropped`.
+	 *
+	 * Es mira la versió i no `has_action()`: l'acció la dispara Vigilante, no l'escolta,
+	 * així que no hi ha cap registre que la delati abans de desar.
+	 *
+	 * @param string|null $version Versió a avaluar; per defecte, la carregada.
+	 * @return bool
+	 */
+	public static function vigilante_reports_dropped_lines( $version = null ) {
+		$version = null === $version ? self::vigilante_version() : (string) $version;
+
+		return '' !== $version && version_compare( $version, self::DROPPED_LINES_ACTION_SINCE, '>=' );
+	}
+
+	/**
 	 * Llegeix la configuració de Vigilante d'un site concret de la xarxa.
 	 *
 	 * Sempre aparella switch_to_blog/restore_current_blog (try/finally).

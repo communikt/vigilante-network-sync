@@ -1,10 +1,10 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Vigilante Network Sync 2.0.14\n"
+"Project-Id-Version: Vigilante Network Sync 2.0.15\n"
 "Report-Msgid-Bugs-To: https://github.com/communikt/vigilante-network-sync/"
 "issues\n"
-"POT-Creation-Date: 2026-11-08 07:48+0100\n"
-"PO-Revision-Date: 2026-11-08 07:50+0100\n"
+"POT-Creation-Date: 2026-11-19 07:54+0100\n"
+"PO-Revision-Date: 2026-11-19 08:00+0100\n"
 "Last-Translator: Albert Calzada <albert@communikt.com>\n"
 "Language-Team: Español\n"
 "Language: es_ES\n"
@@ -13,13 +13,13 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: includes/class-vigsync-detector.php:120
+#: includes/class-vigsync-detector.php:144
 msgid "La configuració de Vigilante al site principal és buida o inexistent."
 msgstr ""
 "La configuración de Vigilante en el sitio principal está vacía o no existe."
 
 #. translators: %s: nom de la clau de configuració que falta
-#: includes/class-vigsync-detector.php:132
+#: includes/class-vigsync-detector.php:156
 #, php-format
 msgid ""
 "L'esquema de Vigilante no és el esperat: falta la secció «%s». S'avorta la "
@@ -28,7 +28,7 @@ msgstr ""
 "El esquema de Vigilante no es el esperado: falta la sección «%s». Se aborta "
 "la sincronización por seguridad."
 
-#: includes/class-vigsync-detector.php:143
+#: includes/class-vigsync-detector.php:167
 msgid ""
 "L'esquema de login de Vigilante ha canviat (no hi ha «custom_login_url»). "
 "S'avorta la sincronització per seguretat."
@@ -156,38 +156,65 @@ msgid ""
 msgstr ""
 "Sincronización completada: %1$d de %2$d sitios actualizados correctamente."
 
-#: includes/class-vigsync-sync.php:219
+#: includes/class-vigsync-sync.php:222
 msgid "Ja estava sincronitzat (sense canvis)."
 msgstr "Ya estaba sincronizado (sin cambios)."
 
-#: includes/class-vigsync-sync.php:226
+#: includes/class-vigsync-sync.php:234
 msgid "Configuració sincronitzada."
 msgstr "Configuración sincronizada."
 
 #. translators: %s: llista d'entrades d'IP descartades, separades per comes
-#: includes/class-vigsync-sync.php:231
+#: includes/class-vigsync-sync.php:239
 #, php-format
 msgid "Entrades d'IP descartades perquè no poden coincidir mai: %s."
 msgstr "Entradas de IP descartadas porque no pueden coincidir nunca: %s."
 
-#: includes/class-vigsync-sync.php:238
+#: includes/class-vigsync-sync.php:246
 msgid ""
 "Ja estava sincronitzat: el validador de Vigilante adapta el payload en desar-"
 "lo, i el resultat ja era el que hi havia al destí."
-msgstr "Ya estaba sincronizado: el validador de Vigilante adapta el payload al guardarlo, y el resultado ya era el que había en el destino."
+msgstr ""
+"Ya estaba sincronizado: el validador de Vigilante adapta el payload al "
+"guardarlo, y el resultado ya era el que había en el destino."
 
-#: includes/class-vigsync-sync.php:242
+#: includes/class-vigsync-sync.php:250
 msgid "update_option ha retornat false (possible error d'escriptura)."
 msgstr "update_option ha devuelto false (posible error de escritura)."
 
+#: includes/class-vigsync-sync.php:476
+msgid "adreça del mateix site"
+msgstr "dirección del propio sitio"
+
+#: includes/class-vigsync-sync.php:495
+msgid "bloquejaria navegadors normals"
+msgstr "bloquearía navegadores normales"
+
+#. translators: %s: navegadors que la línia bloquejaria, separats per comes
+#: includes/class-vigsync-sync.php:498
+#, php-format
+msgid "bloquejaria %s"
+msgstr "bloquearía %s"
+
+#: includes/class-vigsync-sync.php:500
+msgid "bloquejaria el navegador de qui sincronitza"
+msgstr "bloquearía el navegador de quien sincroniza"
+
+#: includes/class-vigsync-sync.php:502
+msgid "bloquejaria el mateix WordPress"
+msgstr "bloquearía el propio WordPress"
+
 #. translators: %s: línies de la llista negra, separades per comes
-#: includes/class-vigsync-sync.php:392
+#: includes/class-vigsync-sync.php:609
 #, php-format
 msgid ""
 "Vigilante no ha desat en aquest site aquestes línies de la llista negra "
 "perquè bloquejarien persones o el mateix site (al principal es conserven si "
 "ja hi eren desades): %s."
-msgstr "Vigilante no ha guardado en este sitio estas líneas de la lista negra porque bloquearían a personas o al propio sitio (en el principal se conservan si ya estaban guardadas): %s."
+msgstr ""
+"Vigilante no ha guardado en este sitio estas líneas de la lista negra porque "
+"bloquearían a personas o al propio sitio (en el principal se conservan si ya "
+"estaban guardadas): %s."
 
 #: includes/views/network-settings-page.php:37
 msgid ""

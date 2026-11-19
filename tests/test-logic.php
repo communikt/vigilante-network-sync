@@ -9,6 +9,8 @@
  *  - Vigsync_Sync::lines_not_stored()  (línies que Vigilante 3.0.11+ no desa al destí)
  *  - Vigsync_Login_Guard::copy_is_valid() / replace_token() / cookie_header_is_clearing()
  *    (rèplica del 404 del login ocult de Vigilante 3.0.9)
+ *  - Vigsync_Sync::write_options() / format_dropped_lines() / same_option_value()
+ *    (acció vigilante_firewall_lines_dropped de Vigilante 3.0.12+)
  *
  * Ús:  php tests/test-logic.php
  *
@@ -33,6 +35,19 @@ if ( ! function_exists( 'absint' ) ) {
 	 */
 	function absint( $maybeint ) {
 		return abs( (int) $maybeint );
+	}
+}
+
+if ( ! function_exists( '__' ) ) {
+	/**
+	 * Traducció (sense fitxers carregats, el core retorna el text tal qual).
+	 *
+	 * @param string $text   Text.
+	 * @param string $domain Domini (ignorat).
+	 * @return string
+	 */
+	function __( $text, $domain = 'default' ) {
+		return $text;
 	}
 }
 
@@ -925,6 +940,260 @@ vigsync_assert(
 		array( 'firewall' => array( 'ua_whitelist' => array() ) )
 	),
 	'llistes que Vigilante no esporga (ua_whitelist) → fora de l\'abast'
+);
+
+// ---------------------------------------------------------------------------
+// Vigilante 3.0.12+: vigilante_firewall_lines_dropped.
+//
+// Des de la 3.0.12 Vigilante diu ell mateix quines línies de la llista negra no
+// desa. El sync l'escolta durant el seu update_option() i ja no crida el
+// validador a mà (cada crida dispararia l'acció de més per a qui l'escolti).
+// ---------------------------------------------------------------------------
+
+echo "\nvigilante_reports_dropped_lines() (versió de Vigilante):\n";
+
+vigsync_assert( false, Vigsync_Detector::vigilante_reports_dropped_lines( '3.0.11' ), '3.0.11 → encara sense acció (es simula)' );
+vigsync_assert( true, Vigsync_Detector::vigilante_reports_dropped_lines( '3.0.12' ), '3.0.12 → acció disponible' );
+vigsync_assert( true, Vigsync_Detector::vigilante_reports_dropped_lines( '3.0.14' ), '3.0.14 → acció disponible' );
+vigsync_assert( true, Vigsync_Detector::vigilante_reports_dropped_lines( '3.1.0' ), '3.1.0 → acció disponible' );
+vigsync_assert( false, Vigsync_Detector::vigilante_reports_dropped_lines( '' ), 'Vigilante no carregat → sense acció' );
+
+echo "\nformat_dropped_lines() (el que passa l'acció → línies del log):\n";
+
+vigsync_assert(
+	array( 'firewall.ua_blacklist: Chrome/15 (bloquejaria Chrome, Edge)' ),
+	Vigsync_Sync::format_dropped_lines(
+		array( 'ua_blacklist' => array( array( 'line' => 'Chrome/15', 'verdict' => 'browser', 'labels' => array( 'Chrome', 'Edge' ) ) ) )
+	),
+	'veredicte browser amb navegadors → els nomena'
+);
+vigsync_assert(
+	array( 'firewall.ua_blacklist: Mozilla (bloquejaria navegadors normals)' ),
+	Vigsync_Sync::format_dropped_lines( array( 'ua_blacklist' => array( array( 'line' => 'Mozilla', 'verdict' => 'browser', 'labels' => array( '', null ) ) ) ) ),
+	'browser sense navegadors útils → motiu genèric'
+);
+vigsync_assert(
+	array(
+		'firewall.ua_blacklist: Firefox/140 (bloquejaria el navegador de qui sincronitza)',
+		'firewall.ua_blacklist: WordPress/7.1 (bloquejaria el mateix WordPress)',
+		'firewall.ua_blacklist: Rar/1',
+		'firewall.ua_blacklist: Antic/1',
+	),
+	Vigsync_Sync::format_dropped_lines(
+		array(
+			'ua_blacklist' => array(
+				array( 'line' => ' Firefox/140 ', 'verdict' => 'own', 'labels' => array() ),
+				array( 'line' => 'WordPress/7.1', 'verdict' => 'site' ),
+				array( 'line' => 'Rar/1', 'verdict' => 'veredicte-futur' ),
+				'Antic/1',
+			),
+		)
+	),
+	'own, site, veredicte desconegut (sense motiu) i entrada de text pla'
+);
+vigsync_assert(
+	array( 'firewall.ip_blacklist: 203.0.113.7 (adreça del mateix site)' ),
+	Vigsync_Sync::format_dropped_lines( array( 'ip_blacklist' => array( '203.0.113.7', '203.0.113.7', '', array( 'x' ) ) ) ),
+	'IP del mateix site: amb motiu, sense repetir, buides i no escalars ignorades'
+);
+vigsync_assert(
+	array(),
+	Vigsync_Sync::format_dropped_lines( array( 'ua_blacklist' => array( array( 'verdict' => 'browser' ), array( 'line' => '' ) ) ) ),
+	'entrades sense línia → res'
+);
+vigsync_assert( array(), Vigsync_Sync::format_dropped_lines( 'no-és-un-array' ), 'paràmetre que no és array → res, no peta' );
+
+echo "\nsame_option_value() (criteri d'update_option()):\n";
+
+vigsync_assert( true, Vigsync_Sync::same_option_value( array( 'a' => array( 1 ) ), array( 'a' => array( 1 ) ) ), 'arrays idèntics → iguals' );
+vigsync_assert( false, Vigsync_Sync::same_option_value( array( 'a' => 1 ), array( 'a' => 2 ) ), 'valor diferent → diferents' );
+vigsync_assert( false, Vigsync_Sync::same_option_value( array( 'a' => 1 ), null ), 'array contra null → diferents' );
+
+/*
+ * Stubs mínims del sistema de hooks i d'update_option() per exercitar
+ * write_options() de punta a punta. update_option() fa el mateix que el core en
+ * l'ordre que importa: sanitize_option() (aquí, el validador simulat de
+ * Vigilante 3.0.12, que dispara l'acció), pre_update_option_{$option}, i
+ * comparació amb el valor desat.
+ */
+$GLOBALS['vigsync_test_hooks']      = array();
+$GLOBALS['vigsync_test_option']     = array();
+$GLOBALS['vigsync_test_write_fails'] = false;
+
+if ( ! function_exists( 'add_filter' ) ) {
+	/**
+	 * Stub d'add_filter().
+	 *
+	 * @param string   $tag      Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Prioritat.
+	 * @return bool
+	 */
+	function add_filter( $tag, $callback, $priority = 10 ) {
+		$GLOBALS['vigsync_test_hooks'][ $tag ][ $priority ][] = $callback;
+		return true;
+	}
+
+	/**
+	 * Stub d'add_action().
+	 *
+	 * @param string   $tag      Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Prioritat.
+	 * @return bool
+	 */
+	function add_action( $tag, $callback, $priority = 10 ) {
+		return add_filter( $tag, $callback, $priority );
+	}
+
+	/**
+	 * Stub de remove_filter().
+	 *
+	 * @param string   $tag      Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Prioritat.
+	 * @return bool
+	 */
+	function remove_filter( $tag, $callback, $priority = 10 ) {
+		if ( empty( $GLOBALS['vigsync_test_hooks'][ $tag ][ $priority ] ) ) {
+			return false;
+		}
+		$GLOBALS['vigsync_test_hooks'][ $tag ][ $priority ] = array_values(
+			array_filter(
+				$GLOBALS['vigsync_test_hooks'][ $tag ][ $priority ],
+				function ( $cb ) use ( $callback ) {
+					return $cb !== $callback;
+				}
+			)
+		);
+		if ( empty( $GLOBALS['vigsync_test_hooks'][ $tag ][ $priority ] ) ) {
+			unset( $GLOBALS['vigsync_test_hooks'][ $tag ][ $priority ] );
+		}
+		if ( empty( $GLOBALS['vigsync_test_hooks'][ $tag ] ) ) {
+			unset( $GLOBALS['vigsync_test_hooks'][ $tag ] );
+		}
+		return true;
+	}
+
+	/**
+	 * Stub de remove_action().
+	 *
+	 * @param string   $tag      Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Prioritat.
+	 * @return bool
+	 */
+	function remove_action( $tag, $callback, $priority = 10 ) {
+		return remove_filter( $tag, $callback, $priority );
+	}
+
+	/**
+	 * Stub d'apply_filters() (només el primer argument passa pels callbacks).
+	 *
+	 * @param string $tag   Hook.
+	 * @param mixed  $value Valor.
+	 * @return mixed
+	 */
+	function apply_filters( $tag, $value ) {
+		if ( empty( $GLOBALS['vigsync_test_hooks'][ $tag ] ) ) {
+			return $value;
+		}
+		ksort( $GLOBALS['vigsync_test_hooks'][ $tag ] );
+		foreach ( $GLOBALS['vigsync_test_hooks'][ $tag ] as $callbacks ) {
+			foreach ( $callbacks as $cb ) {
+				$value = call_user_func( $cb, $value );
+			}
+		}
+		return $value;
+	}
+
+	/**
+	 * Stub de do_action().
+	 *
+	 * @param string $tag Hook.
+	 * @param mixed  $arg Argument.
+	 */
+	function do_action( $tag, $arg = null ) {
+		apply_filters( $tag, $arg );
+	}
+
+	/**
+	 * Stub d'update_option() amb l'ordre del core.
+	 *
+	 * @param string $option Opció.
+	 * @param mixed  $value  Valor.
+	 * @return bool
+	 */
+	function update_option( $option, $value ) {
+		$old = $GLOBALS['vigsync_test_option'];
+
+		// sanitize_option(): el validador simulat de Vigilante 3.0.12.
+		$dropped = array();
+		if ( isset( $value['firewall']['ua_blacklist'] ) ) {
+			$kept = array();
+			foreach ( $value['firewall']['ua_blacklist'] as $line ) {
+				$was_stored = isset( $old['firewall']['ua_blacklist'] ) && in_array( $line, $old['firewall']['ua_blacklist'], true );
+				if ( 'Chrome/15' === $line && ! $was_stored ) {
+					$dropped['ua_blacklist'][] = array( 'line' => $line, 'verdict' => 'browser', 'labels' => array( 'Chrome' ) );
+					continue;
+				}
+				$kept[] = $line;
+			}
+			$value['firewall']['ua_blacklist'] = $kept;
+		}
+		if ( $dropped ) {
+			do_action( 'vigilante_firewall_lines_dropped', $dropped );
+		}
+
+		$value = apply_filters( 'pre_update_option_' . $option, $value );
+
+		if ( $value === $old || $GLOBALS['vigsync_test_write_fails'] ) {
+			return false;
+		}
+		$GLOBALS['vigsync_test_option'] = $value;
+		return true;
+	}
+}
+
+echo "\nwrite_options() + already_stored() (Vigilante 3.0.12+):\n";
+
+$amb_chrome15 = array( 'firewall' => array( 'ua_blacklist' => array( 'BadBot', 'Chrome/15' ) ) );
+
+$w = vigsync_call_private( 'Vigsync_Sync', 'write_options', array( $amb_chrome15 ) );
+vigsync_assert( true, $w['saved'], '(n) primera escriptura → desada' );
+vigsync_assert(
+	array( 'firewall.ua_blacklist: Chrome/15 (bloquejaria Chrome)' ),
+	Vigsync_Sync::format_dropped_lines( $w['dropped'] ),
+	'(n) la línia que Vigilante no desa arriba per l\'acció, amb el motiu'
+);
+vigsync_assert( array( 'firewall' => array( 'ua_blacklist' => array( 'BadBot' ) ) ), $w['stored'], '(n) es captura el valor sanejat que el core desa' );
+vigsync_assert( array(), $GLOBALS['vigsync_test_hooks'], '(n) en acabar no queda cap ganxo nostre enganxat' );
+
+$existent = $GLOBALS['vigsync_test_option'];
+$w2       = vigsync_call_private( 'Vigsync_Sync', 'write_options', array( $amb_chrome15 ) );
+vigsync_assert( false, $w2['saved'], '(n) segona escriptura del mateix payload → false' );
+vigsync_assert(
+	true,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $amb_chrome15, $existent, $w2['stored'] ) ),
+	'(n) …i és «ja sincronitzat», decidit amb el valor capturat'
+);
+
+$GLOBALS['vigsync_test_write_fails'] = true;
+$w3 = vigsync_call_private( 'Vigsync_Sync', 'write_options', array( array( 'firewall' => array( 'ua_blacklist' => array( 'AltreBot' ) ) ) ) );
+$GLOBALS['vigsync_test_write_fails'] = false;
+vigsync_assert(
+	false,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( array(), $existent, $w3['stored'] ) ),
+	'(n) escriptura que falla amb un valor diferent → error de debò'
+);
+vigsync_assert( array(), $w3['dropped'], '(n) la captura es reinicia a cada escriptura' );
+
+// El valor capturat mana sobre el validador: el stub de Vigilante_Settings
+// conservaria la clau 'login_security' i donaria un altre resultat.
+vigsync_assert(
+	true,
+	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $payload_residu, array( 'x' => 1 ), array( 'x' => 1 ) ) ),
+	'(n) amb valor capturat no es torna a cridar el validador'
 );
 
 // ---------------------------------------------------------------------------

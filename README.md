@@ -77,7 +77,9 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
   la lista negra que bloquearían a personas (navegadores normales, el navegador de quien
   sincroniza, el propio WordPress) ni las direcciones del propio sitio; una línea antigua del
   principal que ya estaba guardada allí se conserva, pero no llega a un subsitio que no la
-  tuviera. El log del sync las nombra (desde 2.0.14).
+  tuviera. El log del sync las nombra (desde 2.0.14) y, con Vigilante 3.0.12 o posterior, dice
+  también el motivo de cada una, a partir de la acción `vigilante_firewall_lines_dropped`
+  (desde 2.0.15).
 - **Configuración de 2FA** (`login_security.two_factor`) — marca la casilla para copiarla.
   **Con Vigilante anterior a 2.11.10:** hazlo solo si el método es **e-mail**, porque los
   secretos TOTP viven en tablas por sitio y copiar el "método activado" sin el secreto dejaría

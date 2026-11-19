@@ -14,6 +14,51 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.0.15] - 2026-11-19
+
+Compatibilidad con **Vigilante 3.0.14** (y 3.0.12 y 3.0.13), revisada sobre los tres diffs
+completos: 3.0.11 → 3.0.12 (nueve ficheros), 3.0.12 → 3.0.13 (quince) y 3.0.13 → 3.0.14
+(diecinueve). La 3.0.12 trae la acción que pedimos a Fernando Tellado el 2026-11-08, y esta
+versión la adopta.
+
+### Puntos de acoplamiento revisados
+- Firmas iguales en la 3.0.14 de todo lo que usamos: `validate_options()`,
+  `get_user_data_keys()`, `get_shared_file_settings()`, `can_write_shared_files()`,
+  `two_factor_site_requires()`, `split_list()`, `request_uri()`, `peer_is_trusted_proxy()`,
+  `send_not_found()`, `not_found_copy_is_valid()` y `keep_only_clearing_cookies()`.
+  `class-login-security.php` no cambia en ninguna de las tres versiones.
+- Esquema: solo entra `firewall.protect_upgrade_folders` (3.0.13, bloqueo de
+  `wp-content/upgrade` en el `.htaccess`), que Vigilante añade también a
+  `get_shared_file_settings()`. Como leemos esa lista de Vigilante, el sync ya la preserva en cada
+  subsitio sin cambiar código.
+- 3.0.14: las cuentas que deben usar la app de 2FA y no la tienen reciben un código por correo
+  (`two_factor_handler_for()`); no afecta a `Vigsync_Detector::two_factor_demand_of()`, que lee
+  los ajustes y no el método elegido en el login.
+
+### Mejorado
+- **El sync escucha `vigilante_firewall_lines_dropped` (Vigilante 3.0.12+) en lugar de llamar al
+  validador a mano.** Hasta ahora, para saber qué líneas de la lista negra no guardaba Vigilante
+  y si un `update_option()` en `false` era «ya sincronizado», el sync llamaba a
+  `validate_options()` una o dos veces más por subsitio; desde la 3.0.12 cada llamada dispara la
+  acción, y quien la escuche la habría recibido dos o tres veces por escritura. El nuevo
+  `Vigsync_Sync::write_options()` engancha, solo durante su `update_option()`, la acción (líneas
+  descartadas) y `pre_update_option_vigilante_options` a la prioridad más tardía (el valor ya
+  saneado que el core compara con el guardado), y los suelta en un `finally`. Con Vigilante
+  3.0.11 se mantiene la simulación previa (`lines_vigilante_will_drop()`).
+- **El log dice el motivo de cada línea descartada**, con el veredicto de Vigilante:
+  «bloquejaria Chrome, Edge», «bloquejaria el navegador de qui sincronitza», «bloquejaria el
+  mateix WordPress» o «adreça del mateix site» (`Vigsync_Sync::format_dropped_lines()`, lógica
+  pura).
+- `already_stored()` compara con el criterio de `update_option()` (idénticos o misma
+  serialización, `same_option_value()`).
+
+### Tests
+- 23 asserts nuevos (132 en total): versión mínima de la acción, `format_dropped_lines()`
+  (veredictos `browser`/`own`/`site`, desconocido, texto plano, IPs repetidas, entradas vacías y
+  no escalares), `same_option_value()`, y `write_options()` de punta a punta con stubs de hooks y
+  de `update_option()` en el orden del core (línea descartada recibida por la acción, valor
+  capturado, ganchos sueltos al acabar, «ya sincronizado» frente a error real).
+
 ## [2.0.14] - 2026-11-08
 
 Compatibilidad con **Vigilante 3.0.11** (y 3.0.10), revisada sobre los dos diffs completos:

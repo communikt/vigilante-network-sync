@@ -209,16 +209,24 @@ class Vigsync_Sync {
 			$rejected_ips = $sync_ip_lists ? self::strip_unmatchable_ips( $payload ) : array();
 
 			// Vigilante 3.0.11+ no desa les línies noves de la llista negra que
-			// bloquejarien persones o el mateix site. Sense la casella, les llistes
-			// són les del destí, ja desades, i no n'hi pot descartar cap.
-			$not_stored = $sync_ip_lists ? self::lines_vigilante_will_drop( $payload ) : array();
+			// bloquejarien persones o el mateix site. Des de la 3.0.12 ho diu ell
+			// mateix amb una acció durant l'escriptura; a la 3.0.11 cal simular-ho
+			// abans. Sense la casella, les llistes són les del destí, ja desades, i
+			// no n'hi pot descartar cap.
+			$reports_dropped = Vigsync_Detector::vigilante_reports_dropped_lines();
+			$not_stored      = ( $sync_ip_lists && ! $reports_dropped ) ? self::lines_vigilante_will_drop( $payload ) : array();
 
 			// Si el contingut és idèntic, update_option retorna false; ho tractem com "omès".
 			if ( $payload === $existing ) {
 				$result['status']  = 'skipped';
 				$result['message'] = __( 'Ja estava sincronitzat (sense canvis).', 'vigilante-network-sync' );
 			} else {
-				$saved = update_option( Vigsync_Detector::VIGILANTE_OPTION, $payload );
+				$write = self::write_options( $payload );
+				$saved = $write['saved'];
+				if ( $reports_dropped ) {
+					$not_stored = self::format_dropped_lines( $write['dropped'] );
+				}
+
 				if ( $saved ) {
 					// Força la regeneració de regles de login al destí.
 					delete_option( 'vigilante_login_rules_version' );
@@ -233,7 +241,7 @@ class Vigsync_Sync {
 						);
 					}
 					$result['message'] .= self::not_stored_note( $not_stored );
-				} elseif ( self::already_stored( $payload, $existing ) ) {
+				} elseif ( self::already_stored( $payload, $existing, $write['stored'] ) ) {
 					$result['status']  = 'skipped';
 					$result['message'] = __( 'Ja estava sincronitzat: el validador de Vigilante adapta el payload en desar-lo, i el resultat ja era el que hi havia al destí.', 'vigilante-network-sync' )
 						. self::not_stored_note( $not_stored );
@@ -271,25 +279,230 @@ class Vigsync_Sync {
 	 * configuració hi era correcta. Un log que crida a l'error quan no n'hi ha cap
 	 * és pitjor que no tenir-ne: en una xarxa és l'única prova que el sync funciona.
 	 *
-	 * Aquí es refà el sanejat amb el mateix validador de Vigilante i es compara amb
-	 * el que hi havia. Si coincideixen, l'escriptura no tenia res a fer i el destí
-	 * està sincronitzat. Si no, el false és un error de veritat i es reporta.
+	 * Des de la 2.0.15 es compara el valor que `update_option()` mateix ha comparat
+	 * (capturat per `write_options()` després del sanejat), sense tornar a cridar el
+	 * validador: des de Vigilante 3.0.12 cada crida dispara
+	 * `vigilante_firewall_lines_dropped`, i qui l'escolti l'ha de rebre un cop per
+	 * escriptura. Si no hi ha valor capturat, es refà el sanejat amb el validador
+	 * de Vigilante com abans. Si coincideixen, l'escriptura no tenia res a fer i el
+	 * destí està sincronitzat. Si no, el false és un error de veritat i es reporta.
 	 *
-	 * Sense validador disponible (Vigilante molt antic) es retorna false: val més
-	 * mantenir l'avís que empassar-se un error real.
+	 * Sense valor capturat ni validador disponible (Vigilante molt antic) es
+	 * retorna false: val més mantenir l'avís que empassar-se un error real.
 	 *
-	 * @param array $payload  Payload que s'ha intentat desar.
-	 * @param array $existing Configuració que hi havia al destí abans d'escriure.
+	 * @param array      $payload  Payload que s'ha intentat desar.
+	 * @param array      $existing Configuració que hi havia al destí abans d'escriure.
+	 * @param array|null $stored   Valor que `update_option()` ha intentat desar, o null.
 	 * @return bool
 	 */
-	private static function already_stored( $payload, $existing ) {
-		$sanitized = Vigsync_Detector::sanitize_like_vigilante( $payload );
+	private static function already_stored( $payload, $existing, $stored = null ) {
+		$sanitized = is_array( $stored ) ? $stored : Vigsync_Detector::sanitize_like_vigilante( $payload );
 
 		if ( null === $sanitized ) {
 			return false;
 		}
 
-		return $sanitized === $existing;
+		return self::same_option_value( $sanitized, $existing );
+	}
+
+	/**
+	 * Compara dos valors d'opció com ho fa `update_option()`.
+	 *
+	 * El core dona l'escriptura per innecessària si els valors són idèntics o si
+	 * serialitzen igual (`wp-includes/option.php`). Lògica pura.
+	 *
+	 * @param mixed $a Un valor.
+	 * @param mixed $b L'altre.
+	 * @return bool
+	 */
+	public static function same_option_value( $a, $b ) {
+		if ( $a === $b ) {
+			return true;
+		}
+
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Mateixa comparació que maybe_serialize() fa per a arrays a update_option().
+		return is_array( $a ) && is_array( $b ) && serialize( $a ) === serialize( $b );
+	}
+
+	/**
+	 * Línies descartades per Vigilante durant l'escriptura en curs.
+	 *
+	 * @var array
+	 */
+	private static $captured_dropped = array();
+
+	/**
+	 * Valor que `update_option()` ha intentat desar, ja sanejat per Vigilante.
+	 *
+	 * @var array|null
+	 */
+	private static $captured_value = null;
+
+	/**
+	 * Desa la configuració al site actual i recull què n'ha fet Vigilante.
+	 *
+	 * Durant el `update_option()`, i només durant aquest, s'escolten dues coses:
+	 *
+	 * - `vigilante_firewall_lines_dropped` (Vigilante 3.0.12+): les línies de la
+	 *   llista negra que el validador no desa, amb el veredicte i els navegadors
+	 *   que bloquejarien. Abans les calculàvem cridant el validador a mà, cosa
+	 *   que ara faria saltar l'acció dos o tres cops de més per subsite.
+	 * - `pre_update_option_vigilante_options` a la prioritat més tardana: el
+	 *   valor ja sanejat que el core compara amb el desat. Serveix per distingir
+	 *   el false de «no hi havia res a fer» del false d'error sense tornar a
+	 *   sanejar.
+	 *
+	 * Els dos ganxos es treuen sempre (finally), també si l'escriptura peta.
+	 *
+	 * @param array $payload Payload a desar.
+	 * @return array {
+	 *     @type bool       $saved   Retorn de `update_option()`.
+	 *     @type array|null $stored  Valor sanejat que s'ha intentat desar, o null.
+	 *     @type array      $dropped Línies descartades, per clau de llista.
+	 * }
+	 */
+	private static function write_options( $payload ) {
+		$option = Vigsync_Detector::VIGILANTE_OPTION;
+
+		self::$captured_dropped = array();
+		self::$captured_value   = null;
+
+		add_action( 'vigilante_firewall_lines_dropped', array( __CLASS__, 'capture_dropped_lines' ), 10, 1 );
+		add_filter( 'pre_update_option_' . $option, array( __CLASS__, 'capture_value_to_store' ), PHP_INT_MAX, 1 );
+
+		try {
+			$saved = update_option( $option, $payload );
+		} finally {
+			remove_action( 'vigilante_firewall_lines_dropped', array( __CLASS__, 'capture_dropped_lines' ), 10 );
+			remove_filter( 'pre_update_option_' . $option, array( __CLASS__, 'capture_value_to_store' ), PHP_INT_MAX );
+		}
+
+		return array(
+			'saved'   => (bool) $saved,
+			'stored'  => self::$captured_value,
+			'dropped' => self::$captured_dropped,
+		);
+	}
+
+	/**
+	 * Callback de `vigilante_firewall_lines_dropped`: acumula les línies descartades.
+	 *
+	 * Vigilante la dispara un cop per escriptura, però s'acumula per si mai
+	 * arribés dos cops (p. ex. un altre `update_option()` niat).
+	 *
+	 * @param mixed $dropped Claus `ua_blacklist` i/o `ip_blacklist` amb les línies.
+	 * @return void
+	 */
+	public static function capture_dropped_lines( $dropped ) {
+		if ( ! is_array( $dropped ) ) {
+			return;
+		}
+
+		foreach ( $dropped as $key => $lines ) {
+			if ( ! is_string( $key ) || ! is_array( $lines ) ) {
+				continue;
+			}
+			if ( ! isset( self::$captured_dropped[ $key ] ) ) {
+				self::$captured_dropped[ $key ] = array();
+			}
+			foreach ( $lines as $line ) {
+				self::$captured_dropped[ $key ][] = $line;
+			}
+		}
+	}
+
+	/**
+	 * Callback de `pre_update_option_vigilante_options`: guarda el valor sense tocar-lo.
+	 *
+	 * @param mixed $value Valor sanejat que el core desarà.
+	 * @return mixed El mateix valor.
+	 */
+	public static function capture_value_to_store( $value ) {
+		self::$captured_value = is_array( $value ) ? $value : null;
+
+		return $value;
+	}
+
+	/**
+	 * Converteix el que passa `vigilante_firewall_lines_dropped` en línies del log.
+	 *
+	 * Lògica pura. Mateix format que `lines_not_stored()` («secció.clau: línia»),
+	 * més el motiu quan Vigilante el dona: els navegadors que bloquejaria, el
+	 * navegador de qui sincronitza o el mateix WordPress. Les adreces d'IP són
+	 * sempre del mateix site.
+	 *
+	 * @param array $dropped {
+	 *     @type array[]  $ua_blacklist Entrades amb `line`, `verdict` i `labels`.
+	 *     @type string[] $ip_blacklist Adreces o rangs.
+	 * }
+	 * @return string[] Línies etiquetades, sense repetir.
+	 */
+	public static function format_dropped_lines( $dropped ) {
+		$out = array();
+
+		if ( ! is_array( $dropped ) ) {
+			return $out;
+		}
+
+		if ( isset( $dropped['ua_blacklist'] ) && is_array( $dropped['ua_blacklist'] ) ) {
+			foreach ( $dropped['ua_blacklist'] as $entry ) {
+				$line   = '';
+				$reason = '';
+
+				if ( is_array( $entry ) ) {
+					$line   = isset( $entry['line'] ) && is_scalar( $entry['line'] ) ? trim( (string) $entry['line'] ) : '';
+					$labels = array();
+					if ( isset( $entry['labels'] ) && is_array( $entry['labels'] ) ) {
+						foreach ( $entry['labels'] as $label ) {
+							if ( is_scalar( $label ) && '' !== trim( (string) $label ) ) {
+								$labels[] = trim( (string) $label );
+							}
+						}
+					}
+					$reason = self::dropped_reason( isset( $entry['verdict'] ) ? $entry['verdict'] : '', $labels );
+				} elseif ( is_scalar( $entry ) ) {
+					$line = trim( (string) $entry );
+				}
+
+				if ( '' !== $line ) {
+					$out[] = 'firewall.ua_blacklist: ' . $line . ( '' !== $reason ? ' (' . $reason . ')' : '' );
+				}
+			}
+		}
+
+		if ( isset( $dropped['ip_blacklist'] ) && is_array( $dropped['ip_blacklist'] ) ) {
+			foreach ( $dropped['ip_blacklist'] as $ip ) {
+				if ( is_scalar( $ip ) && '' !== trim( (string) $ip ) ) {
+					$out[] = 'firewall.ip_blacklist: ' . trim( (string) $ip ) . ' (' . __( 'adreça del mateix site', 'vigilante-network-sync' ) . ')';
+				}
+			}
+		}
+
+		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * Motiu llegible del veredicte de Vigilante sobre una línia de User-Agent.
+	 *
+	 * @param mixed    $verdict own, site o browser.
+	 * @param string[] $labels  Navegadors que bloquejaria (només amb browser).
+	 * @return string Buit si el veredicte no és cap dels coneguts.
+	 */
+	private static function dropped_reason( $verdict, $labels ) {
+		switch ( $verdict ) {
+			case 'browser':
+				if ( empty( $labels ) ) {
+					return __( 'bloquejaria navegadors normals', 'vigilante-network-sync' );
+				}
+				/* translators: %s: navegadors que la línia bloquejaria, separats per comes */
+				return sprintf( __( 'bloquejaria %s', 'vigilante-network-sync' ), implode( ', ', $labels ) );
+			case 'own':
+				return __( 'bloquejaria el navegador de qui sincronitza', 'vigilante-network-sync' );
+			case 'site':
+				return __( 'bloquejaria el mateix WordPress', 'vigilante-network-sync' );
+			default:
+				return '';
+		}
 	}
 
 	/**
@@ -321,6 +534,10 @@ class Vigsync_Sync {
 	 * calcula a cada sincronització i no un cop per sempre.
 	 *
 	 * Sense validador disponible no es pot saber, i es retorna una llista buida.
+	 *
+	 * Només per a Vigilante 3.0.11: des de la 3.0.12 la mateixa informació arriba
+	 * per `vigilante_firewall_lines_dropped` (vegeu `write_options()`), i cridar
+	 * aquí el validador faria saltar l'acció una vegada de més.
 	 *
 	 * @param array $payload Payload que es desarà.
 	 * @return string[] Línies etiquetades amb la seva secció i clau.
