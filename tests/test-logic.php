@@ -765,15 +765,35 @@ vigsync_assert(
 
 echo "should_block_request():\n";
 
-vigsync_assert( true, Vigsync_Login_Guard::should_block_request( 'GET', '', false, false ), 'GET + acció buida + deslogat → bloqueja' );
-vigsync_assert( true, Vigsync_Login_Guard::should_block_request( 'GET', 'login', false, false ), 'GET + action=login → bloqueja' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'POST', '', false, false ), 'POST → passa' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', 'logout', false, false ), 'action=logout → passa' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', 'lostpassword', false, false ), 'action=lostpassword → passa' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', 'rp', false, false ), 'action=rp (reset) → passa' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', 'resetpass', false, false ), 'action=resetpass → passa' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', '', true, false ), 'usuari logat → passa' );
-vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', '', false, true ), 'interim-login → passa' );
+vigsync_assert( true, Vigsync_Login_Guard::should_block_request( 'GET', false, false, false ), 'GET + pantalla d\'accés + deslogat → bloqueja' );
+vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'POST', false, false, false ), 'POST → passa' );
+vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'post', false, false, false ), 'post en minúscules → passa' );
+vigsync_assert( true, Vigsync_Login_Guard::should_block_request( 'HEAD', false, false, false ), 'HEAD → bloqueja (wp-login.php hi pinta el formulari)' );
+vigsync_assert( true, Vigsync_Login_Guard::should_block_request( 'PUT', false, false, false ), 'PUT → bloqueja' );
+vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', true, false, false ), 'una altra pantalla de wp-login.php → passa' );
+vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', false, true, false ), 'usuari logat → passa' );
+vigsync_assert( false, Vigsync_Login_Guard::should_block_request( 'GET', false, false, true ), 'interim-login → passa' );
+
+echo "\nrequested_action() + is_other_screen():\n";
+
+$vigsync_screen = function ( $request_action, $has_handler = false, $key = false, $checkemail = false ) {
+	return Vigsync_Login_Guard::is_other_screen( Vigsync_Login_Guard::requested_action( $request_action, $key, $checkemail ), $has_handler );
+};
+vigsync_assert( 'login', Vigsync_Login_Guard::requested_action( null, false, false ), 'sense action → login' );
+vigsync_assert( false, $vigsync_screen( null ), 'sense action → pantalla d\'accés' );
+vigsync_assert( false, $vigsync_screen( 'login' ), 'action=login → pantalla d\'accés' );
+vigsync_assert( false, $vigsync_screen( '' ), 'action buida → pantalla d\'accés (wp-login.php la converteix en login)' );
+foreach ( array( 'logout', 'lostpassword', 'retrievepassword', 'rp', 'resetpass', 'register', 'postpass', 'confirmaction', 'confirm_admin_email', 'checkemail', 'entered_recovery_mode' ) as $vigsync_action ) {
+	vigsync_assert( true, $vigsync_screen( $vigsync_action ), "action={$vigsync_action} → una altra pantalla" );
+}
+vigsync_assert( false, $vigsync_screen( 'loquesea' ), 'action=loquesea sense filtre → pantalla d\'accés (forat que va notar en Fernando)' );
+vigsync_assert( true, $vigsync_screen( 'loquesea', true ), 'action=loquesea amb login_form_loquesea enganxat → una altra pantalla' );
+vigsync_assert( false, $vigsync_screen( 'LOGOUT' ), 'action=LOGOUT → pantalla d\'accés (wp-login.php compara tal com arriba)' );
+vigsync_assert( false, $vigsync_screen( 'logout ' ), 'action amb espai → pantalla d\'accés' );
+vigsync_assert( false, $vigsync_screen( array( 'logout' ) ), 'action com a array → pantalla d\'accés' );
+vigsync_assert( true, $vigsync_screen( 'loquesea', false, true ), '?key=… → resetpass, una altra pantalla' );
+vigsync_assert( true, $vigsync_screen( null, false, false, true ), '?checkemail=… → checkemail, una altra pantalla' );
+vigsync_assert( 'checkemail', Vigsync_Login_Guard::requested_action( 'login', true, true ), 'key i checkemail → mana checkemail (com a wp-login.php)' );
 
 // ---------------------------------------------------------------------------
 // Rèplica del 404 de Vigilante 3.0.9 (helpers purs del login guard).
@@ -1195,6 +1215,157 @@ vigsync_assert(
 	vigsync_call_private( 'Vigsync_Sync', 'already_stored', array( $payload_residu, array( 'x' => 1 ), array( 'x' => 1 ) ) ),
 	'(n) amb valor capturat no es torna a cridar el validador'
 );
+
+// ---------------------------------------------------------------------------
+// Vigilante 3.1.0 (xarxa migrada): retirada ordenada (v2.1.0).
+// ---------------------------------------------------------------------------
+
+echo "\nnetwork_config_active() / get_site_keys() sense els mètodes (Vigilante < 3.1.0):\n";
+
+// El stub de Vigilante_Settings és el d'una versió anterior a la 3.1.0: no té cap
+// dels dos mètodes, i el plugin ha de seguir fent el que feia.
+vigsync_assert( false, Vigsync_Detector::network_config_active(), '(a) sense network_config_active() → xarxa no migrada' );
+vigsync_assert( null, Vigsync_Detector::get_site_keys(), '(b) sense get_site_keys() → null' );
+vigsync_assert( false, Vigsync_Detector::vigilante_handles_network(), '(c) el bloqueig de login no s\'aparta' );
+
+echo "\nbuild_lists_payload():\n";
+
+$lists_source = array(
+	'modules'          => array( 'login_security' => 1 ),
+	'firewall'         => array(
+		'ip_whitelist'         => array( '10.0.0.1' ),
+		'ip_blacklist'         => array( '6.6.6.6' ),
+		'ua_whitelist'         => array( 'MonitorBot' ),
+		'ua_blacklist'         => array( 'sqlmap' ),
+		'trusted_proxy_header' => 'X-Forwarded-For',
+		'force_https'          => true,
+	),
+	'login_security'   => array(
+		'custom_login_url' => 'acceso',
+		'ip_whitelist'     => array( '10.0.0.2' ),
+		'two_factor'       => array( 'enabled' => true ),
+	),
+	'activity_log'     => array( 'excluded_ips' => array( '10.0.0.3' ) ),
+	'email'            => array( 'additional_recipients' => array( 'principal@example.com' ) ),
+	'security_headers' => array( 'csp' => array( 'report_uri' => 'https://principal/csp' ) ),
+);
+
+$lists_existing = array(
+	'modules'          => array( 'login_security' => 0 ),
+	'firewall'         => array(
+		'ip_blacklist'         => array( '7.7.7.7' ),
+		'trusted_proxy_header' => '',
+		'force_https'          => false,
+	),
+	'login_security'   => array(
+		'custom_login_url' => 'entrada-propia',
+		'two_factor'       => array( 'enabled' => false ),
+	),
+	'email'            => array( 'additional_recipients' => array( 'client@example.com' ) ),
+	'security_headers' => array( 'csp' => array( 'report_uri' => 'https://subsite/csp' ) ),
+	'clau_antiga'      => 'es conserva',
+);
+
+// Llista real de claus per site que en Fernando va anunciar per a la 3.1.0.
+$site_keys_310 = array(
+	'firewall'         => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'force_https', 'redirect_http_to_https', 'fix_mixed_content', 'upgrade_insecure_requests' ),
+	'login_security'   => array( 'ip_whitelist', 'custom_login_url' ),
+	'activity_log'     => array( 'excluded_ips' ),
+	'email'            => array( 'additional_recipients' ),
+	'security_headers' => array( 'csp' ),
+);
+
+$lp = Vigsync_Sync::build_lists_payload( $lists_source, $lists_existing, $site_keys_310 );
+
+vigsync_assert( array( '10.0.0.1' ), $lp['firewall']['ip_whitelist'], '(a) firewall.ip_whitelist del principal' );
+vigsync_assert( array( '6.6.6.6' ), $lp['firewall']['ip_blacklist'], '(b) firewall.ip_blacklist del principal (substitueix la del destí)' );
+vigsync_assert( array( 'MonitorBot' ), $lp['firewall']['ua_whitelist'], '(c) firewall.ua_whitelist del principal' );
+vigsync_assert( array( 'sqlmap' ), $lp['firewall']['ua_blacklist'], '(d) firewall.ua_blacklist del principal' );
+vigsync_assert( array( '10.0.0.2' ), $lp['login_security']['ip_whitelist'], '(e) login_security.ip_whitelist del principal' );
+vigsync_assert( array( '10.0.0.3' ), $lp['activity_log']['excluded_ips'], '(f) activity_log.excluded_ips del principal (secció creada)' );
+vigsync_assert( 'entrada-propia', $lp['login_security']['custom_login_url'], '(g) el slug del destí no es toca' );
+vigsync_assert( array( 'client@example.com' ), $lp['email']['additional_recipients'], '(h) els destinataris del destí no es toquen' );
+vigsync_assert( 'https://subsite/csp', $lp['security_headers']['csp']['report_uri'], '(i) la CSP report-uri del destí no es toca' );
+vigsync_assert( false, $lp['firewall']['force_https'], '(j) els ajustos d\'HTTPS del destí no es toquen' );
+vigsync_assert( '', $lp['firewall']['trusted_proxy_header'], '(k) les claus de xarxa del destí no es toquen (Vigilante les conserva per tornar a la 3.0.14)' );
+vigsync_assert( array( 'login_security' => 0 ), $lp['modules'], '(l) els mòduls del destí no es toquen' );
+vigsync_assert( array( 'enabled' => false ), $lp['login_security']['two_factor'], '(m) el 2FA del destí no es toca' );
+vigsync_assert( 'es conserva', $lp['clau_antiga'], '(n) les claus desconegudes del destí es conserven' );
+
+// Una llista que una versió futura passés a la configuració de xarxa ja no viatja.
+$lp2 = Vigsync_Sync::build_lists_payload(
+	$lists_source,
+	$lists_existing,
+	array( 'firewall' => array( 'ip_whitelist' ) )
+);
+vigsync_assert( array( '7.7.7.7' ), $lp2['firewall']['ip_blacklist'], '(o) llista que Vigilante no declara per site → es manté la del destí' );
+vigsync_assert( false, isset( $lp2['activity_log'] ), '(p) secció que Vigilante no declara per site → no es crea' );
+
+// Sense la llista de Vigilante es fa servir la nostra.
+$lp3 = Vigsync_Sync::build_lists_payload( $lists_source, $lists_existing, null );
+vigsync_assert( array( 'sqlmap' ), $lp3['firewall']['ua_blacklist'], '(q) sense get_site_keys() → es copien les nostres llistes' );
+
+// El principal sense una llista: la del destí es manté.
+$source_sense_llista = $lists_source;
+unset( $source_sense_llista['firewall']['ip_blacklist'] );
+$lp4 = Vigsync_Sync::build_lists_payload( $source_sense_llista, $lists_existing, $site_keys_310 );
+vigsync_assert( array( '7.7.7.7' ), $lp4['firewall']['ip_blacklist'], '(r) el principal no té la llista → es manté la del destí' );
+
+// Res a copiar: el payload és el destí tal qual (el sync ho dona per «sense canvis»).
+$lp5 = Vigsync_Sync::build_lists_payload( array( 'modules' => array() ), $lists_existing, $site_keys_310 );
+vigsync_assert( $lists_existing, $lp5, '(s) principal sense cap llista → payload idèntic al destí' );
+
+echo "\nTancament natiu del login dels subsites (Vigilante 3.1.0):\n";
+
+// Sense la classe: el bloqueig d'aquest plugin segueix com fins ara.
+vigsync_assert( false, Vigsync_Detector::native_login_close_available(), '(t) sense Vigilante_Login_Security → sense tancament natiu' );
+vigsync_assert( null, Vigsync_Detector::subsite_login_closed( 2 ), '(u) sense el mètode → null' );
+
+/*
+ * Stub de la 3.1.0 abans de migrar: hi ha el tancament natiu però encara no la
+ * configuració de xarxa (Vigilante_Settings no té network_config_active()).
+ * Dins d'un condicional per la mateixa raó de hoisting que els altres stubs.
+ */
+if ( ! class_exists( 'Vigilante_Login_Security' ) ) {
+	/**
+	 * Stub de la classe de login de Vigilante 3.1.0.
+	 */
+	class Vigilante_Login_Security {
+
+		/**
+		 * Valor que retorna el stub (l'interruptor de wp-config.php, simulat).
+		 *
+		 * @var bool
+		 */
+		public static $closed = false;
+
+		/**
+		 * Si Vigilante tanca el login del site.
+		 *
+		 * @param int $site_id ID del site; 0 és l'actual.
+		 * @return bool
+		 */
+		public static function subsite_login_closed( $site_id = 0 ) {
+			return self::$closed && $site_id > 1;
+		}
+	}
+}
+
+vigsync_assert( true, Vigsync_Detector::native_login_close_available(), '(v) amb subsite_login_closed() → tancament natiu disponible' );
+vigsync_assert( false, Vigsync_Detector::network_config_active(), '(w) la xarxa encara no està migrada' );
+vigsync_assert( true, Vigsync_Detector::vigilante_handles_network(), '(x) el bloqueig s\'aparta abans de migrar' );
+vigsync_assert( false, Vigsync_Detector::subsite_login_closed( 2 ), '(y) interruptor de wp-config.php obert → false, i el bloqueig segueix apartat' );
+Vigilante_Login_Security::$closed = true;
+vigsync_assert( true, Vigsync_Detector::subsite_login_closed( '2' ), '(z) tancat → true (l\'ID passa per absint)' );
+vigsync_assert( true, Vigsync_Detector::vigilante_handles_network(), '(aa) el que torna el mètode no canvia la decisió d\'apartar-se' );
+
+echo "\nDominis mapejats (same_domain()):\n";
+
+vigsync_assert( true, Vigsync_Detector::same_domain( 'exemple.cat', 'exemple.cat' ), '(ab) mateix domini → comparteix la cookie' );
+vigsync_assert( true, Vigsync_Detector::same_domain( 'Exemple.CAT ', 'exemple.cat' ), '(ac) majúscules i espais no compten' );
+vigsync_assert( false, Vigsync_Detector::same_domain( 'mapejat.test', 'exemple.cat' ), '(ad) domini mapejat → el bloqueig no hi actua' );
+vigsync_assert( false, Vigsync_Detector::same_domain( 'www.exemple.cat', 'exemple.cat' ), '(ae) www. és un altre host → no hi actua (fail-open)' );
+vigsync_assert( false, Vigsync_Detector::same_domain( '', '' ), '(af) principal sense domini llegible → no hi actua (fail-open)' );
 
 // ---------------------------------------------------------------------------
 // Resum.

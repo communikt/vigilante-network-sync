@@ -119,15 +119,40 @@ class Vigsync_Network_Admin {
 	private function save_settings() {
 		$source_id = isset( $_POST['source_site_id'] ) ? absint( wp_unslash( $_POST['source_site_id'] ) ) : get_main_site_id();
 
+		$email = isset( $_POST['notify_email'] ) ? sanitize_email( wp_unslash( $_POST['notify_email'] ) ) : '';
+
+		// En una xarxa migrada a Vigilante 3.1.0+ el formulari només mostra el que
+		// encara té efecte. La resta (bloqueig, slug, 2FA) es conserva tal com era:
+		// si la xarxa torna a la 3.0.14, el plugin ha de fer el mateix que abans.
+		if ( Vigsync_Detector::network_config_active() ) {
+			Vigsync_Settings::update(
+				array(
+					'source_site_id' => $source_id,
+					'sync_ip_lists'  => ! empty( $_POST['sync_ip_lists'] ),
+					'notify_email'   => $email,
+				)
+			);
+
+			$this->action_result = array(
+				'success' => true,
+				'message' => __( 'Configuració desada.', 'vigilante-network-sync' ),
+				'log'     => array(),
+			);
+			return;
+		}
+
 		// El bloqueig només es pot activar si el principal té custom-login i la
 		// xarxa és en subdirectori (cookie d'auth compartida; en subdomini deixaria
 		// l'admin fora dels wp-admin dels subsites).
-		$block_requested = ! empty( $_POST['login_block_enabled'] );
+		// Amb el tancament natiu de Vigilante 3.1.0 la casella no es mostra: es
+		// conserva el valor desat, per si la xarxa torna a la 3.0.14.
+		$native_close    = Vigsync_Detector::native_login_close_available();
+		$block_requested = $native_close
+			? (bool) Vigsync_Settings::get( 'login_block_enabled', false )
+			: ! empty( $_POST['login_block_enabled'] );
 		$block_enabled   = $block_requested
-			&& Vigsync_Detector::is_custom_login_enabled_on_source()
+			&& ( $native_close || Vigsync_Detector::is_custom_login_enabled_on_source() )
 			&& ! is_subdomain_install();
-
-		$email = isset( $_POST['notify_email'] ) ? sanitize_email( wp_unslash( $_POST['notify_email'] ) ) : '';
 
 		Vigsync_Settings::update(
 			array(
@@ -137,7 +162,7 @@ class Vigsync_Network_Admin {
 				// Amb el bloqueig actiu el slug ha de viatjar (vegeu
 				// Vigsync_Sync::login_slug_travels()); es desa així perquè la casella
 				// no quedi desmarcada en desactivar el bloqueig més endavant.
-				'sync_custom_login'   => Vigsync_Sync::login_slug_travels( ! empty( $_POST['sync_custom_login'] ), $block_enabled ),
+				'sync_custom_login'   => Vigsync_Sync::login_slug_travels( ! empty( $_POST['sync_custom_login'] ), $block_enabled && ! $native_close ),
 				'sync_two_factor'     => ! empty( $_POST['sync_two_factor'] ),
 				'notify_email'        => $email,
 			)
@@ -257,13 +282,16 @@ class Vigsync_Network_Admin {
 
 		$settings           = Vigsync_Settings::get_all();
 		$vigilante_active   = Vigsync_Detector::is_vigilante_active();
+		$network_mode       = $vigilante_active && Vigsync_Detector::network_config_active();
 		$source_id          = Vigsync_Settings::get_source_site_id();
-		$custom_login_on    = $vigilante_active && Vigsync_Detector::is_custom_login_enabled_on_source();
+		$custom_login_on    = $vigilante_active && ! $network_mode && Vigsync_Detector::is_custom_login_enabled_on_source();
 		$source_slug        = Vigsync_Detector::get_source_custom_login_slug();
 		$id_was_invalid     = Vigsync_Settings::source_site_id_was_invalid();
-		$two_factor_network = $vigilante_active && Vigsync_Detector::two_factor_is_network_wide();
+		$two_factor_network = $vigilante_active && ! $network_mode && Vigsync_Detector::two_factor_is_network_wide();
 		$two_factor_diverge = $two_factor_network ? Vigsync_Detector::sites_with_divergent_two_factor() : array();
-		$login_block_on     = ! empty( $settings['login_block_enabled'] );
+		$native_close       = $vigilante_active && Vigsync_Detector::native_login_close_available();
+		$native_status      = $native_close ? Vigsync_Detector::native_login_status() : null;
+		$login_block_on     = ! $network_mode && ! $native_close && ! empty( $settings['login_block_enabled'] );
 		$sites_no_login     = ( $vigilante_active && $login_block_on ) ? Vigsync_Detector::sites_without_custom_login() : array();
 
 		require VIGSYNC_INCLUDES_DIR . 'views/network-settings-page.php';

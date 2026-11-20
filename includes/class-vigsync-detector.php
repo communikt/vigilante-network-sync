@@ -52,6 +52,140 @@ class Vigsync_Detector {
 	}
 
 	/**
+	 * Indica si Vigilante ja gestiona la configuració de tota la xarxa.
+	 *
+	 * Des de la 3.1.0, en una xarxa migrada Vigilante guarda una sola configuració
+	 * com a opció de xarxa (`vigilante_network_options`), que només es canvia des
+	 * de l'administració de xarxa, i cada site guarda al seu `vigilante_options`
+	 * només les claus que són seves (`get_site_keys()`). La migració no toca les
+	 * opcions dels subsites, per poder tornar a la 3.0.14: el que hi escrivim
+	 * després de migrar ja no té efecte en els ajustos de xarxa. A més, la 3.1.0
+	 * tanca ella mateixa el login dels subsites. Amb això, el sync de la
+	 * configuració i el bloqueig de login d'aquest plugin ja no fan falta, i
+	 * s'aparten (retirada ordenada, v2.1.0).
+	 *
+	 * Mètode anunciat per en Fernando Tellado per correu el 2026-11-19, abans
+	 * d'escriure'l: es comprova amb `is_callable()` perquè, si al final no és
+	 * estàtic o canvia de nom, el plugin segueixi funcionant com fins ara en
+	 * comptes de petar. En aquest cas cal revisar-ho quan surti la 3.1.0.
+	 *
+	 * @return bool
+	 */
+	public static function network_config_active() {
+		if ( ! class_exists( 'Vigilante_Settings' ) || ! is_callable( array( 'Vigilante_Settings', 'network_config_active' ) ) ) {
+			return false;
+		}
+
+		return (bool) Vigilante_Settings::network_config_active();
+	}
+
+	/**
+	 * Claus de Vigilante que segueixen per site en una xarxa migrada (3.1.0+).
+	 *
+	 * Mateixa forma que `get_user_data_keys()`: secció => llista de claus.
+	 *
+	 * @return array<string,string[]>|null Null si aquesta versió no ofereix el mètode.
+	 */
+	public static function get_site_keys() {
+		if ( ! class_exists( 'Vigilante_Settings' ) || ! is_callable( array( 'Vigilante_Settings', 'get_site_keys' ) ) ) {
+			return null;
+		}
+
+		$keys = Vigilante_Settings::get_site_keys();
+
+		return is_array( $keys ) ? $keys : null;
+	}
+
+	/**
+	 * Indica si aquesta versió de Vigilante tanca ella mateixa el login dels subsites.
+	 *
+	 * La 3.1.0 porta `Vigilante_Login_Security::subsite_login_closed( $site_id = 0 )`,
+	 * estàtic i booleà (noms confirmats per en Fernando Tellado per correu el
+	 * 2026-11-19). El tancament natiu no espera la migració de la configuració:
+	 * només depèn que la xarxa sigui per subdirectori, del slug del principal i de
+	 * l'interruptor de `wp-config.php` de Vigilante, i tot això existeix abans de
+	 * migrar. Per això aquí només es mira que el mètode existeixi, no què torna.
+	 *
+	 * @return bool
+	 */
+	public static function native_login_close_available() {
+		return class_exists( 'Vigilante_Login_Security' )
+			&& is_callable( array( 'Vigilante_Login_Security', 'subsite_login_closed' ) );
+	}
+
+	/**
+	 * Indica si Vigilante tanca el login d'un subsite (3.1.0+).
+	 *
+	 * @param int $site_id ID del site; 0 és el site actual.
+	 * @return bool|null Null si aquesta versió de Vigilante no té el tancament natiu.
+	 */
+	public static function subsite_login_closed( $site_id = 0 ) {
+		if ( ! self::native_login_close_available() ) {
+			return null;
+		}
+
+		return (bool) Vigilante_Login_Security::subsite_login_closed( absint( $site_id ) );
+	}
+
+	/**
+	 * Estat del tancament natiu del login, subsite per subsite (3.1.0+).
+	 *
+	 * Vigilante contesta site a site (en Fernando Tellado, 2026-11-20): tanca un
+	 * subsite amb el mateix domini que el principal, però no un amb domini
+	 * mapejat, ni cap en una xarxa de subdominis. Per això es pregunta a tots, no
+	 * a un de sol. El principal de la xarxa no es tanca mai i no hi compta.
+	 *
+	 * ⚠️ Recorre tots els sites. Només es crida des de la pàgina d'ajustos.
+	 *
+	 * @return array{total:int,open:array<int,string>}|null Null sense tancament natiu;
+	 *         `open`: ID del site => etiqueta (domini + ruta) dels que queden oberts.
+	 */
+	public static function native_login_status() {
+		if ( ! self::native_login_close_available() ) {
+			return null;
+		}
+
+		$sites = get_sites(
+			array(
+				'number'       => 0,
+				'site__not_in' => array( get_main_site_id() ),
+				'archived'     => 0,
+				'deleted'      => 0,
+				'spam'         => 0,
+			)
+		);
+
+		$open = array();
+		foreach ( $sites as $site ) {
+			if ( ! self::subsite_login_closed( (int) $site->blog_id ) ) {
+				$open[ (int) $site->blog_id ] = untrailingslashit( $site->domain . $site->path );
+			}
+		}
+
+		return array(
+			'total' => count( $sites ),
+			'open'  => $open,
+		);
+	}
+
+	/**
+	 * Indica si el bloqueig de login d'aquest plugin s'ha d'apartar.
+	 *
+	 * Ens apartem quan la xarxa està migrada a la configuració de xarxa de la
+	 * 3.1.0 o quan Vigilante ja té el tancament natiu del login dels subsites,
+	 * el que passi primer (el tancament natiu existeix des que s'actualitza, abans
+	 * de migrar). N'hi ha prou que el mètode EXISTEIXI, encara que torni false:
+	 * l'interruptor de `wp-config.php` de Vigilante ha de ser l'únic control, i no
+	 * hem de tornar a tancar el que l'administrador ha volgut obrir. Així tampoc
+	 * queda cap estona amb el login dels subsites obert ni tancat dues vegades.
+	 *
+	 * @return bool
+	 */
+	public static function vigilante_handles_network() {
+		return self::network_config_active() || self::native_login_close_available();
+	}
+
+	/**
 	 * Primera versió de Vigilante que avisa de les línies que descarta en desar.
 	 *
 	 * Des de la 3.0.12, `Vigilante_Settings::validate_options()` dispara
@@ -234,8 +368,9 @@ class Vigsync_Detector {
 			return array();
 		}
 
-		$source_id = Vigsync_Settings::get_source_site_id();
-		$missing   = array();
+		$source_id     = Vigsync_Settings::get_source_site_id();
+		$source_domain = self::source_domain();
+		$missing       = array();
 
 		$sites = get_sites(
 			array(
@@ -253,12 +388,63 @@ class Vigsync_Detector {
 				continue;
 			}
 
+			// En un site amb domini propi el bloqueig no actua (vegeu
+			// site_shares_source_domain()): no cal avisar-ne.
+			if ( ! self::same_domain( $site->domain, $source_domain ) ) {
+				continue;
+			}
+
 			if ( ! self::config_has_custom_login( self::get_site_config( $site_id ) ) ) {
 				$missing[ $site_id ] = untrailingslashit( $site->domain . $site->path );
 			}
 		}
 
 		return $missing;
+	}
+
+	/**
+	 * Indica si dos dominis de `wp_blogs` són el mateix (sense distingir majúscules).
+	 *
+	 * Helper PUR, testejable sense WordPress.
+	 *
+	 * @param string $a Domini d'un site.
+	 * @param string $b Domini d'un altre site.
+	 * @return bool
+	 */
+	public static function same_domain( $a, $b ) {
+		$a = strtolower( trim( (string) $a ) );
+		$b = strtolower( trim( (string) $b ) );
+
+		return '' !== $a && $a === $b;
+	}
+
+	/**
+	 * Domini del site principal (font), o cadena buida si no es troba.
+	 *
+	 * @return string
+	 */
+	private static function source_domain() {
+		$source = get_site( Vigsync_Settings::get_source_site_id() );
+
+		return $source ? (string) $source->domain : '';
+	}
+
+	/**
+	 * Indica si un site comparteix domini amb el principal (font).
+	 *
+	 * En una xarxa per subdirectori, un site amb un domini mapejat no comparteix
+	 * la cookie d'autenticació amb el domini del principal: iniciar sessió al
+	 * principal no l'autentica, així que bloquejar-ne el login deixaria els seus
+	 * administradors sense cap manera d'entrar al seu wp-admin. Fail-open: si no
+	 * es pot llegir algun dels dos sites, es considera que NO el comparteix.
+	 *
+	 * @param int $site_id ID del site.
+	 * @return bool
+	 */
+	public static function site_shares_source_domain( $site_id ) {
+		$site = get_site( absint( $site_id ) );
+
+		return $site ? self::same_domain( $site->domain, self::source_domain() ) : false;
 	}
 
 	/**

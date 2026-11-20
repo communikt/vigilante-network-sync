@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.0.15
+Stable tag: 2.1.0
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -104,6 +104,23 @@ nombra (desde Vigilante 3.0.12, con el motivo: por ejemplo, qué navegadores blo
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.1.0 - 2026-11-20 =
+* **Preparado para Vigilante 3.1.0 (retirada ordenada).** En una red migrada a la 3.1.0,
+  Vigilante aplica una sola configuración de red y cierra él mismo el login de los subsitios.
+  Este plugin lo detecta y se aparta: el bloqueo de login de los subsitios deja de actuar y
+  «Sincronizar ahora» solo copia las listas de IPs y User-Agents del principal, si la casilla está
+  marcada. La pantalla avisa de que, si no se usa esa copia, el plugin ya se puede desactivar.
+* El bloqueo de login ya no actúa en los subsitios con un dominio propio (mapeado): no comparten la
+  cookie del principal y sus administradores se quedaban sin poder entrar.
+* El bloqueo de login de los subsitios se aparta en cuanto Vigilante trae su cierre nativo, que
+  funciona desde que se actualiza, antes de migrar. Con la red todavía sin migrar, la
+  sincronización funciona igual que en la 2.0.15; con Vigilante anterior a la 3.1.0, todo.
+* Corregido: el bloqueo de login dejaba ver el formulario de un subsitio con una acción inventada
+  (`?action=loquesea`), porque wp-login.php la convierte en la pantalla de acceso, y solo cerraba
+  las peticiones GET (wp-login.php también pinta el formulario con HEAD o PUT). Ahora solo pasan
+  los POST y las pantallas que wp-login.php conoce de verdad.
+* El estado del cierre nativo de Vigilante se comprueba subsitio a subsitio.
 
 = 2.0.15 - 2026-11-19 =
 * **Revisado y validado contra Vigilante 3.0.14** (y 3.0.12 y 3.0.13) sobre los diffs completos
@@ -322,6 +339,10 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.1.0 =
+Conviene instalarla antes de actualizar a Vigilante 3.1.0: en cuanto se actualice Vigilante, el plugin deja de
+cerrar el login de los subsitios, que pasa a cerrar Vigilante, y cuando la red se migre se aparta del todo.
 
 = 2.0.15 =
 Compatibilidad validada con Vigilante 3.0.14. El log del sync dice por qué Vigilante no guarda

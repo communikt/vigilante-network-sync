@@ -6,11 +6,14 @@
  *
  * @var array       $settings         Configuració actual del plugin.
  * @var bool        $vigilante_active Si Vigilante està actiu.
+ * @var bool        $network_mode     Si Vigilante 3.1.0+ ja gestiona la configuració de xarxa.
  * @var int         $source_id        ID del site principal efectiu.
  * @var bool        $custom_login_on  Si el principal té custom-login actiu.
  * @var string      $source_slug      Slug de login del principal.
  * @var bool        $id_was_invalid   Si l'ID desat era invàlid (fallback aplicat).
  * @var bool        $login_block_on   Si el bloqueig de login als subsites és actiu.
+ * @var bool        $native_close     Si Vigilante 3.1.0+ tanca ell mateix el login dels subsites.
+ * @var array|null  $native_status    Tancament natiu per subsite: `total` i `open` (ID => etiqueta); null sense tancament natiu.
  * @var array       $sites_no_login   Subsites sense el login ocult de Vigilante (ID => etiqueta).
  * @var array|null  $this->action_result Resultat de la darrera acció.
  *
@@ -49,7 +52,14 @@ $sites  = get_sites(
 		</div>
 	<?php endif; ?>
 
-	<?php if ( is_subdomain_install() ) : ?>
+	<?php if ( $network_mode ) : ?>
+		<div class="notice notice-info">
+			<p><strong><?php esc_html_e( 'Vigilante ja gestiona aquesta xarxa.', 'vigilante-network-sync' ); ?></strong>
+			<?php esc_html_e( 'Aquesta versió de Vigilante aplica una sola configuració a tota la xarxa, que s\'edita des de la seva pàgina a l\'administració de xarxa, i tanca ell mateix el login dels subsites. Per això Vigilante Network Sync ja no sincronitza la configuració ni bloqueja el login dels subsites. L\'únic que encara pot fer és copiar les llistes d\'IPs i User-Agents del principal a la resta de sites. Si no ho necessites, ja pots desactivar aquest plugin.', 'vigilante-network-sync' ); ?></p>
+		</div>
+	<?php endif; ?>
+
+	<?php if ( is_subdomain_install() && ! $network_mode ) : ?>
 		<div class="notice notice-warning">
 			<p><strong><?php esc_html_e( 'Xarxa de subdominis detectada.', 'vigilante-network-sync' ); ?></strong>
 			<?php esc_html_e( 'El bloqueig de login unificat requereix una xarxa en subdirectori (la cookie d\'autenticació de WordPress es comparteix entre sites del mateix domini). En una xarxa de subdominis, iniciar sessió al principal NO autentica els subsites, i bloquejar-ne el login et deixaria fora dels seus wp-admin. Per això el bloqueig està deshabilitat en aquesta xarxa. La sincronització de configuració sí funciona normalment.', 'vigilante-network-sync' ); ?></p>
@@ -85,6 +95,12 @@ $sites  = get_sites(
 					?>
 				</td>
 			</tr>
+			<?php if ( $network_mode ) : ?>
+			<tr>
+				<th><?php esc_html_e( 'Configuració de xarxa de Vigilante', 'vigilante-network-sync' ); ?></th>
+				<td><span class="vigsync-ok">✓ <?php esc_html_e( 'Activa: Vigilante aplica la configuració i tanca el login dels subsites', 'vigilante-network-sync' ); ?></span></td>
+			</tr>
+			<?php else : ?>
 			<tr>
 				<th><?php esc_html_e( 'Custom-login al principal', 'vigilante-network-sync' ); ?></th>
 				<td>
@@ -95,6 +111,7 @@ $sites  = get_sites(
 					<?php endif; ?>
 				</td>
 			</tr>
+				<?php if ( ! $native_close ) : ?>
 			<tr>
 				<th><?php esc_html_e( 'Bloqueig de login elegible', 'vigilante-network-sync' ); ?></th>
 				<td>
@@ -109,6 +126,32 @@ $sites  = get_sites(
 					?>
 				</td>
 			</tr>
+				<?php endif; ?>
+			<?php endif; ?>
+			<?php if ( $native_close ) : ?>
+			<tr>
+				<th><?php esc_html_e( 'Login dels subsites', 'vigilante-network-sync' ); ?></th>
+				<td>
+					<?php if ( empty( $native_status['total'] ) ) : ?>
+						<span class="vigsync-muted"><?php esc_html_e( 'La xarxa encara no té subsites.', 'vigilante-network-sync' ); ?></span>
+					<?php elseif ( empty( $native_status['open'] ) ) : ?>
+						<span class="vigsync-ok">✓ <?php esc_html_e( 'Tancat per Vigilante a tots els subsites', 'vigilante-network-sync' ); ?></span>
+					<?php elseif ( count( $native_status['open'] ) === (int) $native_status['total'] ) : ?>
+						<span class="vigsync-bad"><?php esc_html_e( 'Obert a tots els subsites: Vigilante no el tanca (xarxa de subdominis, principal sense URL de login pròpia o interruptor de Vigilante al wp-config.php). Aquest plugin ja no el bloqueja. La pantalla Accés de la xarxa de Vigilante en diu el motiu.', 'vigilante-network-sync' ); ?></span>
+					<?php else : ?>
+						<span class="vigsync-bad">
+						<?php
+						printf(
+							/* translators: %s: llista de sites, separats per comes */
+							esc_html__( 'Tancat per Vigilante, excepte a: %s (normalment, subsites amb domini propi, que no comparteixen la sessió del principal). Aquest plugin no els bloqueja.', 'vigilante-network-sync' ),
+							esc_html( implode( ', ', $native_status['open'] ) )
+						);
+						?>
+						</span>
+					<?php endif; ?>
+				</td>
+			</tr>
+			<?php endif; ?>
 		</tbody>
 	</table>
 
@@ -135,53 +178,72 @@ $sites  = get_sites(
 			<tr>
 				<th scope="row"><?php esc_html_e( 'Sincronització', 'vigilante-network-sync' ); ?></th>
 				<td>
-					<label>
-						<input type="checkbox" name="sync_custom_login" value="1" <?php checked( ! empty( $settings['sync_custom_login'] ) || $login_block_on ); ?> <?php disabled( $login_block_on ); ?>>
-						<?php esc_html_e( 'Copiar també el slug de custom-login al destí', 'vigilante-network-sync' ); ?>
-					</label>
-					<?php if ( $login_block_on ) : ?>
-						<input type="hidden" name="sync_custom_login" value="1">
-						<span class="description"><?php esc_html_e( '(obligatori mentre el bloqueig de login als subsites estigui actiu)', 'vigilante-network-sync' ); ?></span>
-					<?php endif; ?>
-					<br>
-					<label>
-						<input type="checkbox" name="sync_ip_lists" value="1" <?php checked( ! empty( $settings['sync_ip_lists'] ) ); ?>>
-						<?php esc_html_e( 'Copiar també les llistes d\'IPs i User-Agents (whitelist/blacklist)', 'vigilante-network-sync' ); ?>
-					</label><br>
-					<label>
-						<input type="checkbox" name="sync_two_factor" value="1" <?php checked( ! empty( $settings['sync_two_factor'] ) ); ?>>
-						<?php
-						if ( $two_factor_network ) {
-							esc_html_e( 'Copiar també la configuració de 2FA (recomanat: Vigilante ja la decideix per a tota la xarxa)', 'vigilante-network-sync' );
-						} else {
-							esc_html_e( 'Copiar també la configuració de 2FA (només recomanat si el mètode és e-mail)', 'vigilante-network-sync' );
-						}
-						?>
-					</label>
-					<?php if ( $two_factor_network ) : ?>
-						<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos.', 'vigilante-network-sync' ); ?></p>
-						<p class="description"><?php esc_html_e( 'Aquesta versió de Vigilante decideix el segon factor per a TOTA la xarxa: la política és la unió del que demana cada site, així que n\'hi ha prou que un subsite el demani perquè el compte l\'hagi de passar, arribi el login per on arribi. Per això ara és recomanable copiar-lo, i ja no hi ha el risc d\'abans: la matrícula TOTP també es busca a la taula de tots els sites que el compte pot arribar, de manera que copiar la configuració no deixa ningú sense poder validar.', 'vigilante-network-sync' ); ?></p>
+					<?php if ( $network_mode ) : ?>
+						<label>
+							<input type="checkbox" name="sync_ip_lists" value="1" <?php checked( ! empty( $settings['sync_ip_lists'] ) ); ?>>
+							<?php esc_html_e( 'Copiar les llistes d\'IPs i User-Agents (whitelist/blacklist) del principal a la resta de sites', 'vigilante-network-sync' ); ?>
+						</label>
+						<p class="description"><?php esc_html_e( 'Vigilante manté aquestes llistes per site. Amb la casella marcada, «Sincronitza ara» hi copia les del principal i no toca res més: ni la configuració de xarxa, ni el slug de login, ni els destinataris d\'avisos, ni la CSP report-uri, ni els ajustos d\'HTTPS de cada site.', 'vigilante-network-sync' ); ?></p>
 					<?php else : ?>
-						<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos. Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
-					<?php endif; ?>
-					<?php if ( $two_factor_diverge ) : ?>
-						<p class="description vigsync-bad">
-							<strong><?php esc_html_e( 'Segon factor divergent a la xarxa.', 'vigilante-network-sync' ); ?></strong>
+						<label>
+							<input type="checkbox" name="sync_custom_login" value="1" <?php checked( ! empty( $settings['sync_custom_login'] ) || $login_block_on ); ?> <?php disabled( $login_block_on ); ?>>
+							<?php esc_html_e( 'Copiar també el slug de custom-login al destí', 'vigilante-network-sync' ); ?>
+						</label>
+						<?php if ( $login_block_on ) : ?>
+							<input type="hidden" name="sync_custom_login" value="1">
+							<span class="description"><?php esc_html_e( '(obligatori mentre el bloqueig de login als subsites estigui actiu)', 'vigilante-network-sync' ); ?></span>
+						<?php endif; ?>
+						<br>
+						<label>
+							<input type="checkbox" name="sync_ip_lists" value="1" <?php checked( ! empty( $settings['sync_ip_lists'] ) ); ?>>
+							<?php esc_html_e( 'Copiar també les llistes d\'IPs i User-Agents (whitelist/blacklist)', 'vigilante-network-sync' ); ?>
+						</label><br>
+						<label>
+							<input type="checkbox" name="sync_two_factor" value="1" <?php checked( ! empty( $settings['sync_two_factor'] ) ); ?>>
 							<?php
-							printf(
-								/* translators: %s: llista de sites, separats per comes */
-								esc_html__( 'Aquests sites demanen un segon factor diferent del site principal: %s. Com que Vigilante ara suma el que demana cada site, aquesta diferència afecta comptes de tota la xarxa. Marca la casella de dalt i sincronitza per unificar-la, o revisa la configuració de 2FA d\'aquests sites.', 'vigilante-network-sync' ),
-								esc_html( implode( ', ', $two_factor_diverge ) )
-							);
+							if ( $two_factor_network ) {
+								esc_html_e( 'Copiar també la configuració de 2FA (recomanat: Vigilante ja la decideix per a tota la xarxa)', 'vigilante-network-sync' );
+							} else {
+								esc_html_e( 'Copiar també la configuració de 2FA (només recomanat si el mètode és e-mail)', 'vigilante-network-sync' );
+							}
 							?>
-						</p>
-					<?php endif; ?>
-					<?php if ( Vigsync_Detector::get_shared_file_settings() ) : ?>
-						<p class="description"><?php esc_html_e( 'Vigilante 2.9.8 o superior detectat: els ajustos que només s\'escriuen a wp-config.php i al .htaccess (capçaleres de seguretat, hardening de WP i les proteccions de fitxers) ja NO es copien als subsites. Aquests dos fitxers són únics a tota la xarxa i només els escriu el site principal, així que copiar-hi res no tindria cap efecte.', 'vigilante-network-sync' ); ?></p>
+						</label>
+						<?php if ( $two_factor_network ) : ?>
+							<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos.', 'vigilante-network-sync' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Aquesta versió de Vigilante decideix el segon factor per a TOTA la xarxa: la política és la unió del que demana cada site, així que n\'hi ha prou que un subsite el demani perquè el compte l\'hagi de passar, arribi el login per on arribi. Per això ara és recomanable copiar-lo, i ja no hi ha el risc d\'abans: la matrícula TOTP també es busca a la taula de tots els sites que el compte pot arribar, de manera que copiar la configuració no deixa ningú sense poder validar.', 'vigilante-network-sync' ); ?></p>
+						<?php else : ?>
+							<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos. Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
+						<?php endif; ?>
+						<?php if ( $two_factor_diverge ) : ?>
+							<p class="description vigsync-bad">
+								<strong><?php esc_html_e( 'Segon factor divergent a la xarxa.', 'vigilante-network-sync' ); ?></strong>
+								<?php
+								printf(
+									/* translators: %s: llista de sites, separats per comes */
+									esc_html__( 'Aquests sites demanen un segon factor diferent del site principal: %s. Com que Vigilante ara suma el que demana cada site, aquesta diferència afecta comptes de tota la xarxa. Marca la casella de dalt i sincronitza per unificar-la, o revisa la configuració de 2FA d\'aquests sites.', 'vigilante-network-sync' ),
+									esc_html( implode( ', ', $two_factor_diverge ) )
+								);
+								?>
+							</p>
+						<?php endif; ?>
+						<?php if ( Vigsync_Detector::get_shared_file_settings() ) : ?>
+							<p class="description"><?php esc_html_e( 'Vigilante 2.9.8 o superior detectat: els ajustos que només s\'escriuen a wp-config.php i al .htaccess (capçaleres de seguretat, hardening de WP i les proteccions de fitxers) ja NO es copien als subsites. Aquests dos fitxers són únics a tota la xarxa i només els escriu el site principal, així que copiar-hi res no tindria cap efecte.', 'vigilante-network-sync' ); ?></p>
+						<?php endif; ?>
 					<?php endif; ?>
 				</td>
 			</tr>
-			<?php $block_eligible = $custom_login_on && ! is_subdomain_install(); ?>
+			<?php if ( ! $network_mode && $native_close ) : ?>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Login unificat', 'vigilante-network-sync' ); ?></th>
+				<td>
+					<p class="description"><?php esc_html_e( 'Aquesta versió de Vigilante tanca ella mateixa el login dels subsites, també abans de migrar a la configuració de xarxa, així que el bloqueig d\'aquest plugin s\'aparta. Si cal obrir-lo en una emergència, es fa amb l\'interruptor de Vigilante al wp-config.php. La teva opció es conserva per si la xarxa torna a una versió anterior de Vigilante.', 'vigilante-network-sync' ); ?></p>
+				</td>
+			</tr>
+			<?php endif; ?>
+			<?php
+			if ( ! $network_mode && ! $native_close ) :
+				$block_eligible = $custom_login_on && ! is_subdomain_install();
+				?>
 			<tr>
 				<th scope="row"><?php esc_html_e( 'Login unificat', 'vigilante-network-sync' ); ?></th>
 				<td>
@@ -195,6 +257,7 @@ $sites  = get_sites(
 						<p class="description vigsync-bad"><?php esc_html_e( 'Deshabilitat: cal que el site principal tingui el custom-login de Vigilante configurat.', 'vigilante-network-sync' ); ?></p>
 					<?php else : ?>
 						<p class="description"><?php esc_html_e( 'Els subsites respondran un 404 a qualsevol intent de login (wp-login.php i slug), sense revelar el slug del principal. Inicia sessió un sol cop al principal; la cookie de xarxa et dona accés a tots els subsites.', 'vigilante-network-sync' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Els subsites amb un domini propi (mapejat) en queden fora: no comparteixen la cookie del principal, i bloquejar-los el login deixaria els seus administradors sense poder entrar.', 'vigilante-network-sync' ); ?></p>
 						<p class="description"><?php esc_html_e( 'Mentre estigui actiu, el slug de custom-login es copia sempre als subsites: sense ell, Vigilante no hi captura la còpia de la pàgina 404 del tema ni hi respon 404 a wp-admin, i el bloqueig es distingiria d\'una pàgina inexistent.', 'vigilante-network-sync' ); ?></p>
 					<?php endif; ?>
 					<?php if ( $sites_no_login ) : ?>
@@ -211,6 +274,7 @@ $sites  = get_sites(
 					<?php endif; ?>
 				</td>
 			</tr>
+			<?php endif; ?>
 			<tr>
 				<th scope="row"><label for="vigsync_email"><?php esc_html_e( 'Email d\'avisos', 'vigilante-network-sync' ); ?></label></th>
 				<td>
@@ -228,7 +292,11 @@ $sites  = get_sites(
 	<form method="post" action="">
 		<?php wp_nonce_field( 'vigsync_run_sync' ); ?>
 		<input type="hidden" name="vigsync_action" value="run_sync">
-		<p><?php esc_html_e( 'Replica la configuració del site principal a la resta de sites de la xarxa.', 'vigilante-network-sync' ); ?></p>
+		<?php if ( $network_mode ) : ?>
+			<p><?php esc_html_e( 'Copia les llistes d\'IPs i User-Agents del site principal a la resta de sites de la xarxa.', 'vigilante-network-sync' ); ?></p>
+		<?php else : ?>
+			<p><?php esc_html_e( 'Replica la configuració del site principal a la resta de sites de la xarxa.', 'vigilante-network-sync' ); ?></p>
+		<?php endif; ?>
 		<?php submit_button( __( 'Sincronitza ara', 'vigilante-network-sync' ), 'primary', 'submit', false, $vigilante_active ? array() : array( 'disabled' => 'disabled' ) ); ?>
 	</form>
 
@@ -283,6 +351,7 @@ $sites  = get_sites(
 	</form>
 
 	<!-- AJUDA -->
+	<?php if ( ! $network_mode && ! $native_close ) : ?>
 	<h2><?php esc_html_e( 'Recomanacions', 'vigilante-network-sync' ); ?></h2>
 	<div class="vigsync-help">
 		<p><strong><?php esc_html_e( 'Mode bloqueig (recomanat per a 2FA un sol cop, xarxa multi-idioma):', 'vigilante-network-sync' ); ?></strong>
@@ -292,4 +361,5 @@ $sites  = get_sites(
 		<p><strong><?php esc_html_e( 'Recuperació d\'emergència:', 'vigilante-network-sync' ); ?></strong>
 			<?php esc_html_e( 'defineix VIGSYNC_DISABLE_LOGIN_GUARD a true al wp-config.php per desactivar el bloqueig sense tocar la base de dades (també s\'accepta l\'antic VIGSYNC_DISABLE_REDIRECT). El site principal mai es bloqueja.', 'vigilante-network-sync' ); ?></p>
 	</div>
+	<?php endif; ?>
 </div>

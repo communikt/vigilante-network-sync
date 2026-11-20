@@ -125,18 +125,35 @@ class Vigsync_Sync {
 		$source_id     = Vigsync_Settings::get_source_site_id();
 		$source_config = Vigsync_Detector::get_site_config( $source_id );
 
-		// 3. Valida l'esquema abans d'escriure res.
-		$valid = Vigsync_Detector::validate_schema( $source_config );
+		$sync_ip_lists  = (bool) Vigsync_Settings::get( 'sync_ip_lists', false );
+		// Amb el tancament natiu de Vigilante 3.1.0 el nostre bloqueig s'aparta i
+		// el slug ja no ha de viatjar per força: decideix la casella.
+		$sync_login     = self::login_slug_travels(
+			(bool) Vigsync_Settings::get( 'sync_custom_login', true ),
+			(bool) Vigsync_Settings::get( 'login_block_enabled', false ) && ! Vigsync_Detector::native_login_close_available()
+		);
+		$sync_two_factor = (bool) Vigsync_Settings::get( 'sync_two_factor', false );
+
+		// Vigilante 3.1.0+ en una xarxa migrada ja aplica una sola configuració a
+		// tota la xarxa: copiar-la als subsites no tindria cap efecte. L'únic que
+		// queda per site i que val la pena copiar són les llistes d'IPs i
+		// User-Agents, i només si la casella és marcada.
+		$lists_only = Vigsync_Detector::network_config_active();
+		if ( $lists_only && ! $sync_ip_lists ) {
+			return self::abort( __( 'Vigilante ja gestiona la configuració de tota la xarxa des de l\'administració de xarxa: no hi ha res a sincronitzar. Aquest plugin només pot copiar-hi les llistes d\'IPs i User-Agents del principal, si marques la casella corresponent.', 'vigilante-network-sync' ) );
+		}
+
+		// 3. Valida l'esquema abans d'escriure res. En una xarxa migrada no es
+		// demana l'esquema sencer: el `vigilante_options` del principal pot portar
+		// només les claus pròpies del site (els mòduls i la resta viuen a l'opció de
+		// xarxa), i de la font només es llegeixen les llistes. N'hi ha prou que sigui
+		// un array; si no hi ha cap llista, cada destí queda «sense canvis».
+		$valid = $lists_only
+			? ( is_array( $source_config ) ? true : Vigsync_Detector::validate_schema( $source_config ) )
+			: Vigsync_Detector::validate_schema( $source_config );
 		if ( is_wp_error( $valid ) ) {
 			return self::abort( $valid->get_error_message() );
 		}
-
-		$sync_ip_lists  = (bool) Vigsync_Settings::get( 'sync_ip_lists', false );
-		$sync_login     = self::login_slug_travels(
-			(bool) Vigsync_Settings::get( 'sync_custom_login', true ),
-			(bool) Vigsync_Settings::get( 'login_block_enabled', false )
-		);
-		$sync_two_factor = (bool) Vigsync_Settings::get( 'sync_two_factor', false );
 
 		$log   = array();
 		$sites = get_sites(
@@ -156,7 +173,7 @@ class Vigsync_Sync {
 				continue;
 			}
 
-			$log[] = self::sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login, $sync_two_factor );
+			$log[] = self::sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login, $sync_two_factor, $lists_only );
 		}
 
 		// Desa un resum del darrer sync.
@@ -183,9 +200,10 @@ class Vigsync_Sync {
 	 * @param bool  $sync_ip_lists  Si s'han de copiar també les llistes d'IPs.
 	 * @param bool  $sync_login     Si s'ha de copiar el slug de custom-login.
 	 * @param bool  $sync_two_factor Si s'ha de copiar la configuració de 2FA.
+	 * @param bool  $lists_only      Xarxa migrada a Vigilante 3.1.0+: només es copien les llistes.
 	 * @return array Entrada de log d'aquest site.
 	 */
-	private static function sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login, $sync_two_factor ) {
+	private static function sync_one_site( $target_id, $source_config, $sync_ip_lists, $sync_login, $sync_two_factor, $lists_only = false ) {
 		$site   = get_site( $target_id );
 		$label  = $site ? untrailingslashit( $site->domain . $site->path ) : (string) $target_id;
 		$result = array(
@@ -202,7 +220,9 @@ class Vigsync_Sync {
 				$existing = array();
 			}
 
-			$payload = self::build_payload( $source_config, $existing, $sync_ip_lists, $sync_login, $sync_two_factor );
+			$payload = $lists_only
+				? self::build_lists_payload( $source_config, $existing, Vigsync_Detector::get_site_keys() )
+				: self::build_payload( $source_config, $existing, $sync_ip_lists, $sync_login, $sync_two_factor );
 
 			// Quan es copien les llistes d'IPs, s'hi apliquen les mateixes regles de
 			// validesa que Vigilante 2.9.9+ aplica al seu formulari.
@@ -672,6 +692,60 @@ class Vigsync_Sync {
 				? $existing['security_headers']['csp']['report_uri']
 				: '';
 			$payload['security_headers']['csp']['report_uri'] = $existing_uri;
+		}
+
+		return $payload;
+	}
+
+	/**
+	 * Llistes que es poden copiar en una xarxa migrada a Vigilante 3.1.0+.
+	 *
+	 * Estructura: secció => llista de claus.
+	 *
+	 * @var array
+	 */
+	const LIST_FIELDS = array(
+		'firewall'       => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist' ),
+		'login_security' => array( 'ip_whitelist' ),
+		'activity_log'   => array( 'excluded_ips' ),
+	);
+
+	/**
+	 * Construeix el payload d'una xarxa migrada: el destí tal com és, amb les llistes del principal.
+	 *
+	 * Helper PUR. En una xarxa migrada, Vigilante aplica la configuració de xarxa i
+	 * llegeix del `vigilante_options` de cada site només les claus que hi segueixen
+	 * per site. D'aquestes, només es copien les llistes d'IPs i User-Agents: el slug
+	 * de login, els destinataris d'avisos, la CSP report-uri i les claus d'HTTPS són
+	 * decisions de cada site. La resta del destí no es toca, ni tan sols les claus que
+	 * ja no s'apliquen, perquè Vigilante les conserva per poder tornar a la 3.0.14.
+	 *
+	 * Una llista només viatja si Vigilante la declara per site (`$site_keys`): si una
+	 * versió futura en passés alguna a la configuració de xarxa, copiar-la no tindria
+	 * efecte. Sense la llista de Vigilante (null) es fa servir la nostra. Si el
+	 * principal no té una llista, la del destí es manté.
+	 *
+	 * @param array      $source    Config del principal.
+	 * @param array      $existing  Config actual del destí.
+	 * @param array|null $site_keys Claus per site segons Vigilante, o null.
+	 * @return array
+	 */
+	public static function build_lists_payload( $source, $existing, $site_keys ) {
+		$payload = $existing;
+
+		foreach ( self::LIST_FIELDS as $section => $keys ) {
+			foreach ( $keys as $key ) {
+				if ( is_array( $site_keys ) && ! ( isset( $site_keys[ $section ] ) && in_array( $key, (array) $site_keys[ $section ], true ) ) ) {
+					continue;
+				}
+				if ( ! isset( $source[ $section ] ) || ! is_array( $source[ $section ] ) || ! array_key_exists( $key, $source[ $section ] ) ) {
+					continue;
+				}
+				if ( ! isset( $payload[ $section ] ) || ! is_array( $payload[ $section ] ) ) {
+					$payload[ $section ] = array();
+				}
+				$payload[ $section ][ $key ] = $source[ $section ][ $key ];
+			}
 		}
 
 		return $payload;

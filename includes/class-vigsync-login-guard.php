@@ -80,6 +80,16 @@ class Vigsync_Login_Guard {
 			return false;
 		}
 
+		// Vigilante 3.1.0+ tanca ell mateix el login dels subsites, també abans de
+		// migrar la configuració: ens apartem sempre que el mètode existeixi. Si
+		// l'administrador l'ha desactivat amb l'interruptor de wp-config.php de
+		// Vigilante, no l'hem de tornar a tancar. A més, en una xarxa migrada la
+		// configuració del principal que llegim (`vigilante_options`) ja no és la
+		// que s'aplica.
+		if ( Vigsync_Detector::vigilante_handles_network() ) {
+			return false;
+		}
+
 		// Hard-guard de subdominis: en xarxes de subdominis la cookie d'auth no es
 		// comparteix, així que bloquejar el login dels subsites deixaria l'admin
 		// fora dels seus wp-admin. Es comprova també aquí (no només a la UI) per
@@ -91,6 +101,13 @@ class Vigsync_Login_Guard {
 		// No actuem al site principal (que és on viu el login real). Invariant
 		// anti-lockout: sempre hi ha una porta oberta.
 		if ( $this->is_source_site() ) {
+			return false;
+		}
+
+		// Hard-guard de dominis mapejats: en una xarxa per subdirectori, un site
+		// amb domini propi tampoc comparteix la cookie del principal, i bloquejar-ne
+		// el login el deixaria sense porta d'entrada (mateix motiu que subdominis).
+		if ( ! Vigsync_Detector::site_shares_source_domain( get_current_blog_id() ) ) {
 			return false;
 		}
 
@@ -113,27 +130,94 @@ class Vigsync_Login_Guard {
 	}
 
 	/**
+	 * Accions que wp-login.php coneix de sèrie (wp-login.php, `$default_actions`).
+	 *
+	 * Qualsevol altra acció que no tingui un `login_form_{acció}` enganxat,
+	 * wp-login.php la converteix en `login` i pinta el formulari d'accés.
+	 * `entered_recovery_mode` és `WP_Recovery_Mode_Link_Service::LOGIN_ACTION_ENTERED`.
+	 */
+	const WP_LOGIN_ACTIONS = array(
+		'confirm_admin_email',
+		'postpass',
+		'logout',
+		'lostpassword',
+		'retrievepassword',
+		'resetpass',
+		'rp',
+		'register',
+		'checkemail',
+		'confirmaction',
+		'login',
+		'entered_recovery_mode',
+	);
+
+	/**
+	 * L'acció que wp-login.php farà servir, abans de validar-la.
+	 *
+	 * Helper PUR. Reprodueix wp-login.php: sense `action` és `login`; amb `key` a
+	 * la query passa a `resetpass` i amb `checkemail`, a `checkemail` (en aquest
+	 * ordre). L'acció es pren tal com arriba, sense netejar-la: wp-login.php la
+	 * compara així, i `?action=LOGOUT` no és `logout` per a ell.
+	 *
+	 * @param mixed $request_action Valor de `$_REQUEST['action']` (null si no hi és).
+	 * @param bool  $has_key        Si la query porta `key`.
+	 * @param bool  $has_checkemail Si la query porta `checkemail`.
+	 * @return mixed L'acció (normalment string; pot ser un array si la petició ho envia així).
+	 */
+	public static function requested_action( $request_action, $has_key, $has_checkemail ) {
+		$action = null === $request_action ? 'login' : $request_action;
+		if ( $has_key ) {
+			$action = 'resetpass';
+		}
+		if ( $has_checkemail ) {
+			$action = 'checkemail';
+		}
+		return $action;
+	}
+
+	/**
+	 * Indica si wp-login.php servirà una pantalla diferent de la d'accés.
+	 *
+	 * Helper PUR. Una acció que wp-login.php no coneix i que no té cap
+	 * `login_form_{acció}` enganxat acaba sent `login` (wp-login.php, «Validate
+	 * action so as to default to the login screen»): amb `?action=loquesea` el
+	 * formulari es veuria en un subsite tancat. Ens ho va fer notar en Fernando
+	 * Tellado el 2026-11-20.
+	 *
+	 * @param mixed $action      Acció de requested_action().
+	 * @param bool  $has_handler Si hi ha un filtre a `login_form_{$action}`.
+	 * @return bool
+	 */
+	public static function is_other_screen( $action, $has_handler ) {
+		if ( ! is_string( $action ) || 'login' === $action ) {
+			return false;
+		}
+		return in_array( $action, self::WP_LOGIN_ACTIONS, true ) || $has_handler;
+	}
+
+	/**
 	 * Decideix si una petició a la pantalla de login s'ha de bloquejar.
 	 *
 	 * Helper PUR (sense dependències de WordPress) perquè sigui testejable amb
-	 * stubs. Replica les exclusions de Vigilante per no trencar fluxos legítims
-	 * (logout, restabliment de contrasenya, app passwords, modal de re-login...).
+	 * stubs. Deixa passar el que no és la pantalla d'accés (logout, restabliment
+	 * de contrasenya, registre, modal de re-login...) i tanca la resta.
 	 *
-	 * @param string $method    Mètode HTTP (GET, POST...).
-	 * @param string $action    Valor de l'acció de wp-login.php ($_REQUEST['action']).
-	 * @param bool   $logged_in Si l'usuari ja està autenticat.
-	 * @param bool   $interim   Si és el modal de re-autenticació (interim-login).
+	 * @param string $method       Mètode HTTP (GET, POST...).
+	 * @param bool   $other_screen Si wp-login.php servirà una altra pantalla (is_other_screen()).
+	 * @param bool   $logged_in    Si l'usuari ja està autenticat.
+	 * @param bool   $interim      Si és el modal de re-autenticació (interim-login).
 	 * @return bool True si cal respondre 404; false si s'ha de deixar passar.
 	 */
-	public static function should_block_request( $method, $action, $logged_in, $interim ) {
+	public static function should_block_request( $method, $other_screen, $logged_in, $interim ) {
 		// Usuari ja autenticat: mai bloquegem (logout, re-auth, perfil...).
 		if ( $logged_in ) {
 			return false;
 		}
 
-		// Només bloquegem la càrrega GET de la pantalla; els POST (login, postpass,
-		// resetpass...) passen: un POST directe no revela el slug.
-		if ( 'GET' !== strtoupper( (string) $method ) ) {
+		// Els POST (login, postpass, resetpass...) passen: un POST directe no
+		// revela el slug. Qualsevol altre mètode es tanca: wp-login.php també pinta
+		// el formulari amb un HEAD o un PUT, i un HEAD amb 200 delataria la pantalla.
+		if ( 'POST' === strtoupper( (string) $method ) ) {
 			return false;
 		}
 
@@ -142,16 +226,12 @@ class Vigsync_Login_Guard {
 			return false;
 		}
 
-		// Accions especials de wp-login.php que cal deixar passar (logout, rp,
-		// resetpass, lostpassword, retrievepassword, postpass, confirmaction,
-		// confirm_admin_email, authorize_application...). Qualsevol acció no buida
-		// i diferent de 'login' no és la pantalla d'accés estàndard.
-		$action = (string) $action;
-		if ( '' !== $action && 'login' !== $action ) {
+		// Altres pantalles de wp-login.php: deixar passar.
+		if ( $other_screen ) {
 			return false;
 		}
 
-		// Pantalla de login estàndard (acció buida o 'login'): bloquejar.
+		// Pantalla d'accés: bloquejar.
 		return true;
 	}
 
@@ -169,13 +249,22 @@ class Vigsync_Login_Guard {
 
 		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : 'GET';
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Lectura de routing, sense processar dades.
-		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+		// L'acció es llegeix com la llegeix wp-login.php: crua, sense unslash ni
+		// netejar, perquè la comparació ha de donar el mateix que la seva. Només es
+		// compara amb una llista fixa i amb els filtres enganxats; no s'imprimeix.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Lectura de routing idèntica a wp-login.php.
+		$request_action = isset( $_REQUEST['action'] ) ? $_REQUEST['action'] : null;
+		$action         = self::requested_action(
+			$request_action,
+			isset( $_GET['key'] ), // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Només la presència.
+			isset( $_GET['checkemail'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Només la presència.
+		);
+		$has_handler    = is_string( $action ) && false !== has_filter( 'login_form_' . $action );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Només es comprova la presència del paràmetre.
 		$interim = isset( $_REQUEST['interim-login'] );
 
-		if ( ! self::should_block_request( $method, $action, is_user_logged_in(), $interim ) ) {
+		if ( ! self::should_block_request( $method, self::is_other_screen( $action, $has_handler ), is_user_logged_in(), $interim ) ) {
 			return;
 		}
 
@@ -192,10 +281,11 @@ class Vigsync_Login_Guard {
 	/**
 	 * Serveix el 404 del login ocult tal com el serveix Vigilante.
 	 *
-	 * Si Vigilante arriba a exposar el seu propi mètode (`send_not_found()` és
-	 * privat a la 3.0.9; se li ha demanat un punt d'entrada públic), es crida el
-	 * seu i prou: `is_callable()` sobre un mètode privat des de fora retorna
-	 * false, així que el camí propi només s'usa mentre no hi hagi alternativa.
+	 * Vigilante 3.1.0 exposa el seu: `Vigilante_Login_Security::send_login_not_found()`
+	 * (estàtic; serveix el 404 i acaba la petició; nom confirmat per en Fernando
+	 * Tellado el 2026-11-20). Si existeix es crida el seu i prou. A la pràctica,
+	 * amb la 3.1.0 el bloqueig ja s'aparta (vigilante_handles_network()), així que
+	 * el camí propi és el que serveix amb Vigilante 3.0.9-3.0.14.
 	 *
 	 * Rèplica de `Vigilante_Login_Security::send_not_found()` (3.0.9): la còpia
 	 * de la pàgina 404 del site si és vàlida per al tema i l'adreça actuals,
@@ -204,8 +294,8 @@ class Vigsync_Login_Guard {
 	 * no hi ha còpia, la pàgina plana de Vigilante, idèntica.
 	 */
 	private static function send_not_found() {
-		if ( is_callable( array( 'Vigilante_Login_Security', 'send_not_found' ) ) ) {
-			Vigilante_Login_Security::send_not_found();
+		if ( is_callable( array( 'Vigilante_Login_Security', 'send_login_not_found' ) ) ) {
+			Vigilante_Login_Security::send_login_not_found();
 			exit;
 		}
 

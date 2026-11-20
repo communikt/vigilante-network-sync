@@ -70,6 +70,14 @@ final class Vigsync_Plugin {
 			return;
 		}
 
+		// Amb Vigilante 3.1.0+ el bloqueig ja s'aparta sol (tancament natiu del
+		// login, i en una xarxa migrada l'esquema del principal pot no portar les
+		// seccions de xarxa): no es toca l'opció, perquè si la xarxa torna a la
+		// 3.0.14 el bloqueig hi segueixi.
+		if ( Vigsync_Detector::vigilante_handles_network() ) {
+			return;
+		}
+
 		$valid = Vigsync_Detector::validate_schema( Vigsync_Detector::get_source_config() );
 		if ( is_wp_error( $valid ) && Vigsync_Settings::get( 'login_block_enabled', false ) ) {
 			Vigsync_Settings::update( array( 'login_block_enabled' => false ) );

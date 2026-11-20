@@ -14,6 +14,96 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.1.0] - 2026-11-20
+
+Preparación para **Vigilante 3.1.0**, la versión de multisitio, antes de que salga. Fernando
+Tellado nos adelantó el diseño por correo el 2026-11-19: en una red, Vigilante pasa a tener una
+sola configuración de red (`vigilante_network_options`), editable solo desde la administración de
+red; cada sitio guarda en su `vigilante_options` solo sus claves propias; el 2FA pasa a ser de red,
+y Vigilante cierra él mismo el login de los subsitios. Con eso, lo esencial de este plugin deja de
+hacer falta en una red migrada, y esta versión hace una **retirada ordenada**. Con Vigilante
+anterior a la 3.1.0 el plugin funciona exactamente igual que la 2.0.15; con la 3.1.0 y la red
+todavía sin migrar, también, salvo el bloqueo de login, que se aparta en cuanto Vigilante trae su
+cierre nativo. Fernando confirmó por correo el mismo día (13:06) los nombres de los métodos y que
+el cierre nativo no espera a la migración.
+
+### Añadido
+- `Vigsync_Detector::network_config_active()` y `get_site_keys()`: envuelven los dos métodos que
+  anuncia la 3.1.0 (`Vigilante_Settings::network_config_active()` y `get_site_keys()`), con
+  `is_callable()` para que, si al final cambian de nombre o no son estáticos, el plugin siga como
+  hasta ahora en vez de fallar.
+- `Vigsync_Detector::native_login_close_available()` y `subsite_login_closed()`: envuelven
+  `Vigilante_Login_Security::subsite_login_closed( $site_id = 0 )` (estático y booleano, 0 es el
+  sitio actual), con `is_callable()`.
+- `Vigsync_Detector::vigilante_handles_network()`: decide cuándo se aparta el bloqueo de login. Red
+  migrada **o** cierre nativo disponible, lo que llegue antes; basta con que el método exista,
+  aunque devuelva falso (el interruptor de `wp-config.php` de Vigilante es el único control).
+- `Vigsync_Sync::build_lists_payload()`: payload de una red migrada, el destino tal cual con las
+  listas de IPs y User-Agents del principal (solo las que Vigilante declara por sitio).
+
+### Cambiado
+- **Red migrada (Vigilante 3.1.0+):**
+  - El **bloqueo de login de los subsitios se aparta** siempre: lo hace Vigilante, y si el
+    administrador lo apaga con el interruptor de `wp-config.php` de Vigilante no lo volvemos a
+    cerrar. Además, la configuración del principal que leíamos ya no es la que se aplica.
+  - **«Sincronizar ahora» solo copia las listas de IPs y User-Agents**, y solo con la casilla
+    marcada; sin ella, avisa de que no hay nada que sincronizar. No toca la configuración de red,
+    el slug, los destinatarios de avisos, la CSP report-uri ni los ajustes de HTTPS de cada sitio,
+    ni las claves que Vigilante conserva para poder volver a la 3.0.14.
+  - La pantalla avisa de que Vigilante ya gestiona la red y de que, si no se copian las listas,
+    el plugin se puede desactivar. Esconde las opciones que ya no tienen efecto (slug, 2FA,
+    bloqueo de login, recomendaciones), y al guardar las conserva tal como estaban, por si la red
+    vuelve a la 3.0.14.
+  - La validación del esquema del principal se relaja: de la fuente solo se leen las listas, y su
+    `vigilante_options` puede llevar solo las claves propias del sitio (los módulos y el resto
+    viven en la opción de red). Basta con que sea un array.
+  - La salvaguarda tras actualizar el plugin (`upgrader_process_complete`) no desactiva el bloqueo
+    de login por un esquema incompleto del principal: el bloqueo ya se aparta solo, y la opción se
+    conserva por si la red vuelve a la 3.0.14.
+- **Con el cierre nativo, antes de migrar:** el bloqueo de login se aparta; la casilla se sustituye
+  por una explicación (la opción se conserva para volver a la 3.0.14), el slug ya no viaja por
+  fuerza (decide su casilla), se esconden las recomendaciones del modo bloqueo y el estado muestra
+  si Vigilante tiene cerrado el login de los subsitios. La salvaguarda tras actualizar el plugin
+  tampoco toca la opción.
+- **Dominios mapeados (cualquier versión de Vigilante):** el bloqueo de login ya no actúa en un
+  subsitio cuyo dominio no es el del principal. En una red por subdirectorio, un sitio con dominio
+  mapeado no comparte la cookie de autenticación con el principal, así que bloquearle el login
+  dejaba a sus administradores sin forma de entrar en su wp-admin (el mismo motivo por el que ya se
+  excluían las redes de subdominios). Nuevo `Vigsync_Detector::site_shares_source_domain()` (con el
+  helper puro `same_domain()`), fail-open; la lista de subsitios sin slug tampoco los incluye y la
+  pantalla lo explica.
+- **El estado del cierre nativo se pregunta subsitio a subsitio** (`Vigsync_Detector::native_login_status()`),
+  no solo al primero: Vigilante contesta sitio a sitio y deja abiertos los subsitios con dominio
+  mapeado. La pantalla dice si está cerrado en todos, abierto en todos (y que la pantalla Acceso de
+  red de Vigilante explica por qué) o cerrado salvo en los subsitios que lista.
+- Si Vigilante expone `Vigilante_Login_Security::send_login_not_found()` (3.1.0), el 404 lo sirve
+  el suyo. En la práctica, con la 3.1.0 el bloqueo ya se aparta: la copia propia sigue sirviendo
+  con Vigilante 3.0.9-3.0.14.
+- `Vigilante compat` sigue en 3.0.14: la 3.1.0 aún no ha salido. Cuando salga, se revisará su
+  diff y se actualizará.
+
+### Corregido
+- **El bloqueo de login dejaba ver el formulario con una acción inventada.** Dejábamos pasar
+  cualquier `action` distinta de `login`, pero wp-login.php convierte una acción que no conoce (y
+  sin `login_form_{acción}` enganchado) en la pantalla de acceso: con `?action=loquesea` se veía el
+  formulario de un subsitio bloqueado. No revelaba el slug del principal, pero sí que el login
+  existía. Ahora la acción se compara como la compara wp-login.php: tal como llega, sin limpiarla
+  (`?action=LOGOUT` tampoco es `logout`), con `key` → `resetpass` y `checkemail` → `checkemail`, y
+  solo pasan las pantallas que wp-login.php conoce y las que tienen un `login_form_{acción}`
+  enganchado (`requested_action()` e `is_other_screen()`, puros). Nos lo hizo notar Fernando
+  Tellado el 2026-11-20, al describir el cierre nativo de la 3.1.0.
+- **Solo se bloqueaba el GET.** wp-login.php también pinta el formulario con un HEAD o un PUT, y un
+  HEAD con 200 delataba la pantalla. Ahora solo pasan los POST; cualquier otro método se cierra,
+  como en el cierre nativo de Vigilante.
+
+### Tests
+- 57 asserts nuevos (189 en total): los envoltorios sin la 3.1.0, `build_lists_payload()`, el
+  cierre nativo antes de migrar, `same_domain()`, los métodos HTTP y la acción tal como la ve
+  wp-login.php.
+
+### Traducciones
+- 15 cadenas nuevas, traducidas a catalán, español e inglés (108/108).
+
 ## [2.0.15] - 2026-11-19
 
 Compatibilidad con **Vigilante 3.0.14** (y 3.0.12 y 3.0.13), revisada sobre los tres diffs

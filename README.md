@@ -19,6 +19,24 @@ no tiene panel de red; este plugin añade esa capa que le falta:
 
 > Este plugin **no modifica Vigilante**: solo lee y escribe su opción de configuración.
 
+## Con Vigilante 3.1.0 o posterior
+
+Vigilante 3.1.0 es la versión de multisitio: en una red migrada guarda **una sola configuración
+de red**, editable desde la administración de red, y **cierra él mismo el login de los
+subsitios**. Es decir, hace por sí mismo lo esencial de este plugin. Desde la **2.1.0**, Vigilante
+Network Sync lo detecta y se aparta (retirada ordenada):
+
+- El **bloqueo de login de los subsitios deja de actuar** en cuanto Vigilante trae su cierre
+  nativo (`Vigilante_Login_Security::subsite_login_closed()`), que no espera a la migración:
+  funciona desde que se actualiza. Si se apaga con el interruptor de Vigilante en `wp-config.php`,
+  este plugin no lo vuelve a cerrar. La pantalla de estado dice si Vigilante lo tiene cerrado.
+- **«Sincronizar ahora» solo copia las listas de IPs y User-Agents** del principal al resto de
+  sitios, si la casilla está marcada. No toca nada más.
+- Si no se usa esa copia, **el plugin ya se puede desactivar**; la pantalla lo avisa.
+
+Mientras la red no esté migrada, la sincronización funciona como siempre (solo el bloqueo de
+login se aparta). Con una versión de Vigilante anterior a la 3.1.0, todo funciona como siempre.
+
 ## Requisitos
 
 - WordPress **multisite** (obligatorio).
@@ -137,6 +155,8 @@ una red **en subdirectorio** son uniformes por definición: `firewall.trusted_pr
   precondiciones.
 - **Redes de subdominio:** el bloqueo se **deshabilita y avisa** (`is_subdomain_install()`),
   porque la cookie de auth no se comparte y dejaría al admin fuera de los subsitios.
+- **Dominios mapeados:** por el mismo motivo, en una red por subdirectorio el bloqueo no actúa en
+  los subsitios cuyo dominio no es el del principal (desde la 2.1.0).
 - **Vigilante de versión:** si Vigilante cambia de versión, aparece un aviso en Network
   Admin y se envía un email (una vez por versión) al destinatario configurado.
 - **Salvaguarda post-update:** tras actualizar este plugin, si el esquema de Vigilante
