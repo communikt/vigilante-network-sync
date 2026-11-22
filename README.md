@@ -88,6 +88,10 @@ duplicada aquí. Con versiones anteriores a 2.9.8 el comportamiento es el de sie
 
 - Listas de IPs y de User-Agents (`firewall.ip_whitelist/ip_blacklist/ua_whitelist/ua_blacklist`,
   `login_security.ip_whitelist`, `activity_log.excluded_ips`) — marca la casilla para copiarlas.
+  **Una lista vacía del principal no se copia** (desde la 2.1.1): el subsitio conserva la suya.
+  Para vaciar una lista en toda la red hay que hacerlo en cada sitio. **Con Vigilante 3.1.0** la
+  lista blanca de login (`login_security.ip_whitelist`) que cuenta en toda la red es la del
+  principal, así que no se copia: se conserva la de cada sitio, que ya no decide nada.
   Al copiarlas, las entradas de **IP** que nunca podrían coincidir (`999.999.999.999/99`, una
   palabra suelta…) se descartan con el mismo validador que usa Vigilante 2.9.9 al guardar, y
   se nombran en el log del sync. Las de User-Agent no se tocan.

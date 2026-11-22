@@ -4,7 +4,7 @@ Tags: multisite, network, security, vigilante, login
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.1.0
+Stable tag: 2.1.1
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -104,6 +104,21 @@ nombra (desde Vigilante 3.0.12, con el motivo: por ejemplo, qué navegadores blo
 sitio y que este plugin no conozca se preserva por defecto.
 
 == Changelog ==
+
+= 2.1.1 - 2026-11-22 =
+* **Revisado y validado contra Vigilante 3.1.0** sobre el diff completo desde la 3.0.14, con el zip
+  que Fernando Tellado nos pasó antes de publicarla: todo lo que usa este plugin sigue igual, y en
+  una red migrada Vigilante sigue leyendo las listas de cada sitio de su propio `vigilante_options`.
+* Corregido: con la casilla de listas marcada, una lista vacía del principal borraba la lista
+  propia de un subsitio. Ahora una lista vacía del principal no se copia; para vaciar una lista en
+  toda la red hay que hacerlo en cada sitio.
+* Corregido: el aviso de «versión más nueva que la validada» seguía saliendo en toda la
+  administración de red después de marcar esa versión como compatible.
+* Con Vigilante 3.1.0 la lista blanca de login que cuenta en toda la red es la del principal, así
+  que ya no se copia a los subsitios: copiarla no cambiaba nada.
+* El aviso a los usuarios cuando cambia la URL de acceso (`notify_on_login_url_change`, de cada
+  sitio desde la 3.1.0) viaja con el slug de login: si el slug no se copia, se conserva el del
+  subsitio.
 
 = 2.1.0 - 2026-11-20 =
 * **Preparado para Vigilante 3.1.0 (retirada ordenada).** En una red migrada a la 3.1.0,
@@ -339,6 +354,10 @@ sitio y que este plugin no conozca se preserva por defecto.
 Historial completo en `CHANGELOG.md`.
 
 == Upgrade Notice ==
+
+= 2.1.1 =
+Compatibilidad validada con Vigilante 3.1.0. Una lista vacía del principal ya no borra la de un
+subsitio, y el aviso de versión desaparece al marcarla como compatible.
 
 = 2.1.0 =
 Conviene instalarla antes de actualizar a Vigilante 3.1.0: en cuanto se actualice Vigilante, el plugin deja de

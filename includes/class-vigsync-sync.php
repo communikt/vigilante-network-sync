@@ -221,7 +221,7 @@ class Vigsync_Sync {
 			}
 
 			$payload = $lists_only
-				? self::build_lists_payload( $source_config, $existing, Vigsync_Detector::get_site_keys() )
+				? self::build_lists_payload( $source_config, $existing, Vigsync_Detector::get_site_keys(), Vigsync_Detector::login_whitelist_from_main() )
 				: self::build_payload( $source_config, $existing, $sync_ip_lists, $sync_login, $sync_two_factor );
 
 			// Quan es copien les llistes d'IPs, s'hi apliquen les mateixes regles de
@@ -676,6 +676,19 @@ class Vigsync_Sync {
 			}
 		}
 
+		// Amb la casella de llistes, una llista buida del principal no esborra la del
+		// destí (2.1.1), igual que en una xarxa migrada (vegeu build_lists_payload()).
+		if ( $sync_ip_lists ) {
+			foreach ( self::SITE_SPECIFIC_FIELDS as $section => $keys ) {
+				foreach ( $keys as $key ) {
+					if ( self::is_list_field( $key ) && isset( $source[ $section ] ) && is_array( $source[ $section ] )
+						&& array_key_exists( $key, $source[ $section ] ) && self::list_is_empty( $source[ $section ][ $key ] ) ) {
+						self::preserve_key( $payload, $existing, $section, $key );
+					}
+				}
+			}
+		}
+
 		// El slug de custom-login, quan no es sincronitza, es deixa SEMPRE declarat
 		// (cadena buida si el destí no en tenia). Vigilante ja el faria servir buit
 		// via els seus defaults, però és el camp del qual depèn l'accés: val més que
@@ -723,14 +736,22 @@ class Vigsync_Sync {
 	 * Una llista només viatja si Vigilante la declara per site (`$site_keys`): si una
 	 * versió futura en passés alguna a la configuració de xarxa, copiar-la no tindria
 	 * efecte. Sense la llista de Vigilante (null) es fa servir la nostra. Si el
-	 * principal no té una llista, la del destí es manté.
+	 * principal no té una llista, o la té buida, la del destí es manté (2.1.1: fins
+	 * aleshores una llista buida del principal esborrava la pròpia del subsite; ho va
+	 * veure en Fernando Tellado provant la 3.1.0). Buidar una llista al principal, per
+	 * tant, no la buida als subsites: es fa a cada site.
 	 *
-	 * @param array      $source    Config del principal.
-	 * @param array      $existing  Config actual del destí.
-	 * @param array|null $site_keys Claus per site segons Vigilante, o null.
+	 * La llista blanca de login (`login_security.ip_whitelist`) no viatja quan la que
+	 * compta a tota la xarxa és la del principal (Vigilante 3.1.0, vegeu
+	 * `Vigsync_Detector::login_whitelist_from_main()`): copiar-la no canviaria res.
+	 *
+	 * @param array      $source                    Config del principal.
+	 * @param array      $existing                  Config actual del destí.
+	 * @param array|null $site_keys                 Claus per site segons Vigilante, o null.
+	 * @param bool       $login_whitelist_from_main Si la llista blanca de login és la del principal.
 	 * @return array
 	 */
-	public static function build_lists_payload( $source, $existing, $site_keys ) {
+	public static function build_lists_payload( $source, $existing, $site_keys, $login_whitelist_from_main = false ) {
 		$payload = $existing;
 
 		foreach ( self::LIST_FIELDS as $section => $keys ) {
@@ -738,7 +759,13 @@ class Vigsync_Sync {
 				if ( is_array( $site_keys ) && ! ( isset( $site_keys[ $section ] ) && in_array( $key, (array) $site_keys[ $section ], true ) ) ) {
 					continue;
 				}
+				if ( $login_whitelist_from_main && 'login_security' === $section && 'ip_whitelist' === $key ) {
+					continue;
+				}
 				if ( ! isset( $source[ $section ] ) || ! is_array( $source[ $section ] ) || ! array_key_exists( $key, $source[ $section ] ) ) {
+					continue;
+				}
+				if ( self::list_is_empty( $source[ $section ][ $key ] ) ) {
 					continue;
 				}
 				if ( ! isset( $payload[ $section ] ) || ! is_array( $payload[ $section ] ) ) {
@@ -749,6 +776,20 @@ class Vigsync_Sync {
 		}
 
 		return $payload;
+	}
+
+	/**
+	 * Indica si una llista de Vigilante és buida (array sense línies o cadena en blanc).
+	 *
+	 * @param mixed $value Valor de la llista.
+	 * @return bool
+	 */
+	private static function list_is_empty( $value ) {
+		if ( is_array( $value ) ) {
+			return 0 === count( $value );
+		}
+
+		return null === $value || '' === trim( (string) $value );
 	}
 
 	/**
@@ -781,9 +822,14 @@ class Vigsync_Sync {
 		$preserved = array();
 
 		// Els nostres camps de sempre, filtrats per les caselles.
+		// Amb Vigilante 3.1.0 la llista blanca de login que compta a tota la xarxa és la
+		// del principal: copiar-la no faria res, així que es queda la del destí.
+		$login_whitelist_from_main = Vigsync_Detector::login_whitelist_from_main();
+
 		foreach ( self::SITE_SPECIFIC_FIELDS as $section => $keys ) {
 			foreach ( $keys as $key ) {
-				if ( self::is_list_field( $key ) && $sync_ip_lists ) {
+				if ( self::is_list_field( $key ) && $sync_ip_lists
+					&& ! ( $login_whitelist_from_main && 'login_security' === $section && 'ip_whitelist' === $key ) ) {
 					continue;
 				}
 				if ( 'two_factor' === $key && $sync_two_factor ) {
@@ -793,9 +839,12 @@ class Vigsync_Sync {
 			}
 		}
 
-		// El slug de custom-login té casella pròpia (per defecte SÍ es copia).
+		// El slug de custom-login té casella pròpia (per defecte SÍ es copia). L'avís als
+		// usuaris quan canvia la URL d'accés va amb el slug: Vigilante 3.1.0 el passa a
+		// `get_site_keys()` perquè es decideix allà on és l'adreça.
 		if ( ! $sync_login ) {
 			$preserved['login_security'][] = 'custom_login_url';
+			$preserved['login_security'][] = 'notify_on_login_url_change';
 		}
 
 		// Xarxa de seguretat: camps que Vigilante declara com a dades de l'usuari i

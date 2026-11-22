@@ -184,6 +184,15 @@ $sites  = get_sites(
 							<?php esc_html_e( 'Copiar les llistes d\'IPs i User-Agents (whitelist/blacklist) del principal a la resta de sites', 'vigilante-network-sync' ); ?>
 						</label>
 						<p class="description"><?php esc_html_e( 'Vigilante manté aquestes llistes per site. Amb la casella marcada, «Sincronitza ara» hi copia les del principal i no toca res més: ni la configuració de xarxa, ni el slug de login, ni els destinataris d\'avisos, ni la CSP report-uri, ni els ajustos d\'HTTPS de cada site.', 'vigilante-network-sync' ); ?></p>
+						<p class="description">
+							<?php
+							esc_html_e( 'Una llista buida del principal no esborra la del site: per buidar una llista de tota la xarxa, cal fer-ho a cada site.', 'vigilante-network-sync' );
+							if ( Vigsync_Detector::login_whitelist_from_main() ) {
+								echo ' ';
+								esc_html_e( 'La llista blanca de login no es copia: amb aquesta versió de Vigilante la que compta a tota la xarxa és la del principal.', 'vigilante-network-sync' );
+							}
+							?>
+						</p>
 					<?php else : ?>
 						<label>
 							<input type="checkbox" name="sync_custom_login" value="1" <?php checked( ! empty( $settings['sync_custom_login'] ) || $login_block_on ); ?> <?php disabled( $login_block_on ); ?>>
@@ -213,6 +222,17 @@ $sites  = get_sites(
 							<p class="description"><?php esc_html_e( 'Aquesta versió de Vigilante decideix el segon factor per a TOTA la xarxa: la política és la unió del que demana cada site, així que n\'hi ha prou que un subsite el demani perquè el compte l\'hagi de passar, arribi el login per on arribi. Per això ara és recomanable copiar-lo, i ja no hi ha el risc d\'abans: la matrícula TOTP també es busca a la taula de tots els sites que el compte pot arribar, de manera que copiar la configuració no deixa ningú sense poder validar.', 'vigilante-network-sync' ); ?></p>
 						<?php else : ?>
 							<p class="description"><?php esc_html_e( 'Per defecte es preserven de cada site les llistes d\'IPs i User-Agents, la CSP report-uri, la configuració de 2FA i els destinataris addicionals d\'avisos. Atenció: amb el mètode TOTP, els secrets viuen en taules per-blog i no es poden sincronitzar; copiar la config de 2FA deixaria els usuaris sense poder validar al destí.', 'vigilante-network-sync' ); ?></p>
+						<?php endif; ?>
+						<?php if ( ! empty( $settings['sync_ip_lists'] ) ) : ?>
+							<p class="description">
+								<?php
+								esc_html_e( 'Una llista buida del principal no esborra la del site: per buidar una llista de tota la xarxa, cal fer-ho a cada site.', 'vigilante-network-sync' );
+								if ( Vigsync_Detector::login_whitelist_from_main() ) {
+									echo ' ';
+									esc_html_e( 'La llista blanca de login no es copia: amb aquesta versió de Vigilante la que compta a tota la xarxa és la del principal.', 'vigilante-network-sync' );
+								}
+								?>
+							</p>
 						<?php endif; ?>
 						<?php if ( $two_factor_diverge ) : ?>
 							<p class="description vigsync-bad">

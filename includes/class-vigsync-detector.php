@@ -114,6 +114,28 @@ class Vigsync_Detector {
 	}
 
 	/**
+	 * Indica si la llista blanca de login que compta a la xarxa és la del principal.
+	 *
+	 * Vigilante 3.1.0 compta els intents de login de tota la xarxa en una sola
+	 * taula, la del principal, i l'excepció d'aquest comptador i del seu bloqueig
+	 * és també la del principal (`login_security.ip_whitelist`), migrada la xarxa o
+	 * no (`Vigilante_Login_Security::is_ip_whitelisted()` amb
+	 * `Vigilante_Database::login_counter_is_shared()`). Abans, l'administrador d'un
+	 * subsite podia apagar el límit de força bruta de totes les comptes de la xarxa
+	 * des del seu formulari. La clau segueix a `get_site_keys()`, però copiar-la als
+	 * subsites ja no canvia res: el sync la deixa com està.
+	 *
+	 * Ho va canviar en Fernando Tellado a la segona revisió a cegues de la 3.1.0
+	 * (correu del 2026-11-22). Com a senyal de la 3.1.0 es fa servir el tancament
+	 * natiu del login, que arriba a la mateixa versió.
+	 *
+	 * @return bool
+	 */
+	public static function login_whitelist_from_main() {
+		return self::native_login_close_available();
+	}
+
+	/**
 	 * Indica si Vigilante tanca el login d'un subsite (3.1.0+).
 	 *
 	 * @param int $site_id ID del site; 0 és el site actual.
@@ -499,6 +521,13 @@ class Vigsync_Detector {
 	 * Indica si la versió de Vigilante instal·lada és més nova que la validada
 	 * per aquesta release del nostre plugin (senyal de "toca actualitzar").
 	 *
+	 * Si l'administrador ja ha marcat aquesta versió com a compatible amb el botó
+	 * de la pàgina, no ho és: fins a la 2.1.0 l'avís seguia sortint a tota
+	 * l'administració de xarxa mentre la pàgina deia que la versió estava marcada
+	 * (ho va veure en Fernando Tellado provant la 3.1.0, correu del 2026-11-22).
+	 * No es mira `last_known_vigilante_version`, que també s'omple sol en activar
+	 * el plugin: activar-lo amb una versió més nova no vol dir haver-la revisat.
+	 *
 	 * @return bool
 	 */
 	public static function vigilante_newer_than_compat() {
@@ -507,7 +536,29 @@ class Vigsync_Detector {
 			return false;
 		}
 
-		return version_compare( self::vigilante_version(), $compat, '>' );
+		return self::version_newer_than_compat(
+			self::vigilante_version(),
+			$compat,
+			(string) Vigsync_Settings::get( 'compat_marked_vigilante_version', '' )
+		);
+	}
+
+	/**
+	 * Decideix si una versió de Vigilante és més nova que la validada i encara no marcada.
+	 *
+	 * Helper PUR de `vigilante_newer_than_compat()`.
+	 *
+	 * @param string $current Versió instal·lada.
+	 * @param string $compat  Versió validada per aquesta release («Vigilante compat:»).
+	 * @param string $marked  Versió que l'administrador ha marcat com a compatible, o buit.
+	 * @return bool
+	 */
+	public static function version_newer_than_compat( $current, $compat, $marked ) {
+		if ( '' === (string) $compat || ! version_compare( (string) $current, (string) $compat, '>' ) ) {
+			return false;
+		}
+
+		return '' === (string) $marked || version_compare( (string) $current, (string) $marked, '!=' );
 	}
 
 	/**

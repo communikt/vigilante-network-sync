@@ -1266,13 +1266,14 @@ $lists_existing = array(
 	'clau_antiga'      => 'es conserva',
 );
 
-// Llista real de claus per site que en Fernando va anunciar per a la 3.1.0.
+// Llista real de claus per site de la 3.1.0 (Vigilante_Settings::get_site_keys() del
+// zip que en Fernando ens va passar el 2026-11-22, abans de publicar-la).
 $site_keys_310 = array(
-	'firewall'         => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist', 'force_https', 'redirect_http_to_https', 'fix_mixed_content', 'upgrade_insecure_requests' ),
-	'login_security'   => array( 'ip_whitelist', 'custom_login_url' ),
+	'firewall'         => array( 'ip_whitelist', 'ip_blacklist', 'ua_whitelist', 'ua_blacklist' ),
+	'login_security'   => array( 'ip_whitelist', 'custom_login_url', 'notify_on_login_url_change' ),
 	'activity_log'     => array( 'excluded_ips' ),
 	'email'            => array( 'additional_recipients' ),
-	'security_headers' => array( 'csp' ),
+	'security_headers' => array( 'csp.report_uri' ),
 );
 
 $lp = Vigsync_Sync::build_lists_payload( $lists_source, $lists_existing, $site_keys_310 );
@@ -1314,6 +1315,59 @@ vigsync_assert( array( '7.7.7.7' ), $lp4['firewall']['ip_blacklist'], '(r) el pr
 // Res a copiar: el payload és el destí tal qual (el sync ho dona per «sense canvis»).
 $lp5 = Vigsync_Sync::build_lists_payload( array( 'modules' => array() ), $lists_existing, $site_keys_310 );
 vigsync_assert( $lists_existing, $lp5, '(s) principal sense cap llista → payload idèntic al destí' );
+
+echo "\nLlistes buides i llista blanca de login (2.1.1):\n";
+
+// Una llista buida del principal no esborra la pròpia del subsite (ho va veure en
+// Fernando Tellado provant la 3.1.0, 2026-11-22).
+$buides_source = $lists_source;
+$buides_source['firewall']['ip_blacklist']  = array();
+$buides_source['firewall']['ua_blacklist']  = '';
+$buides_existing                            = $lists_existing;
+$buides_existing['firewall']['ua_blacklist'] = array( 'bot-propi' );
+$lp6 = Vigsync_Sync::build_lists_payload( $buides_source, $buides_existing, $site_keys_310 );
+vigsync_assert( array( '7.7.7.7' ), $lp6['firewall']['ip_blacklist'], '(s1) llista buida (array) al principal → es manté la del destí' );
+vigsync_assert( array( 'bot-propi' ), $lp6['firewall']['ua_blacklist'], '(s2) llista buida (cadena) al principal → es manté la del destí' );
+vigsync_assert( array( '10.0.0.1' ), $lp6['firewall']['ip_whitelist'], '(s3) les llistes amb línies es copien igual' );
+
+// Amb la 3.1.0 la llista blanca de login que compta és la del principal: no viatja.
+$lp7 = Vigsync_Sync::build_lists_payload( $lists_source, $lists_existing, $site_keys_310, true );
+vigsync_assert( false, isset( $lp7['login_security']['ip_whitelist'] ), '(s4) llista blanca de login de xarxa → no es copia (el destí no en tenia)' );
+vigsync_assert( array( '10.0.0.3' ), $lp7['activity_log']['excluded_ips'], '(s5) la resta de llistes segueix viatjant' );
+$amb_login_wl                                   = $lists_existing;
+$amb_login_wl['login_security']['ip_whitelist'] = array( 'DEST-LOGIN-WL' );
+$lp8 = Vigsync_Sync::build_lists_payload( $lists_source, $amb_login_wl, $site_keys_310, true );
+vigsync_assert( array( 'DEST-LOGIN-WL' ), $lp8['login_security']['ip_whitelist'], '(s6) llista blanca de login de xarxa → es manté la del destí' );
+
+// Abans de migrar (build_payload amb la casella de llistes): mateixa regla de la llista buida.
+$source_buida                             = $source;
+$source_buida['firewall']['ip_blacklist'] = array();
+$payload_buida = vigsync_call_private(
+	'Vigsync_Sync',
+	'build_payload',
+	array( $source_buida, $existing_d, true, true, false )
+);
+vigsync_assert( array( 'DEST-BL' ), $payload_buida['firewall']['ip_blacklist'], '(s7) build_payload: llista buida al principal → es manté la del destí' );
+vigsync_assert( array( '2.2.2.2' ), $payload_buida['firewall']['ip_whitelist'], '(s8) build_payload: la llista amb línies es copia' );
+vigsync_assert( array( '1.1.1.1' ), $payload_buida['login_security']['ip_whitelist'], '(s9) build_payload sense la 3.1.0: la llista blanca de login es copia com sempre' );
+
+// notify_on_login_url_change va amb el slug.
+$source_notify                                                = $source;
+$source_notify['login_security']['notify_on_login_url_change'] = true;
+$existing_notify                                                = $existing_d;
+$existing_notify['login_security']['notify_on_login_url_change'] = false;
+$payload_n1 = vigsync_call_private( 'Vigsync_Sync', 'build_payload', array( $source_notify, $existing_notify, false, false, false ) );
+vigsync_assert( false, $payload_n1['login_security']['notify_on_login_url_change'], '(s10) sense copiar el slug → l\'avís de canvi d\'URL és el del destí' );
+$payload_n2 = vigsync_call_private( 'Vigsync_Sync', 'build_payload', array( $source_notify, $existing_notify, false, true, false ) );
+vigsync_assert( true, $payload_n2['login_security']['notify_on_login_url_change'], '(s11) copiant el slug → l\'avís viatja amb ell' );
+
+echo "\nAvís de versió més nova que la validada (2.1.1):\n";
+
+vigsync_assert( true, Vigsync_Detector::version_newer_than_compat( '3.1.0', '3.0.14', '' ), '(v1) més nova i sense marcar → avís' );
+vigsync_assert( false, Vigsync_Detector::version_newer_than_compat( '3.1.0', '3.0.14', '3.1.0' ), '(v2) marcada com a compatible → sense avís' );
+vigsync_assert( true, Vigsync_Detector::version_newer_than_compat( '3.1.1', '3.0.14', '3.1.0' ), '(v3) una versió encara més nova que la marcada → avís de nou' );
+vigsync_assert( false, Vigsync_Detector::version_newer_than_compat( '3.1.0', '3.1.0', '' ), '(v4) igual que la validada → sense avís' );
+vigsync_assert( false, Vigsync_Detector::version_newer_than_compat( '3.1.0', '', '' ), '(v5) sense capçalera de compatibilitat → sense avís' );
 
 echo "\nTancament natiu del login dels subsites (Vigilante 3.1.0):\n";
 
@@ -1358,6 +1412,12 @@ vigsync_assert( false, Vigsync_Detector::subsite_login_closed( 2 ), '(y) interru
 Vigilante_Login_Security::$closed = true;
 vigsync_assert( true, Vigsync_Detector::subsite_login_closed( '2' ), '(z) tancat → true (l\'ID passa per absint)' );
 vigsync_assert( true, Vigsync_Detector::vigilante_handles_network(), '(aa) el que torna el mètode no canvia la decisió d\'apartar-se' );
+
+// Amb la 3.1.0 (tancament natiu present), la llista blanca de login no viatja tampoc abans de migrar.
+vigsync_assert( true, Vigsync_Detector::login_whitelist_from_main(), '(aa1) amb la 3.1.0 la llista blanca de login és la del principal' );
+$payload_wl = vigsync_call_private( 'Vigsync_Sync', 'build_payload', array( $source, $existing_d, true, true, false ) );
+vigsync_assert( array( 'DEST-LOGIN-WL' ), $payload_wl['login_security']['ip_whitelist'], '(aa2) build_payload amb la 3.1.0: la llista blanca de login es queda la del destí' );
+vigsync_assert( array( '2.2.2.2' ), $payload_wl['firewall']['ip_whitelist'], '(aa3) build_payload amb la 3.1.0: les llistes del tallafoc es copien' );
 
 echo "\nDominis mapejats (same_domain()):\n";
 

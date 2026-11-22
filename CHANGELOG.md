@@ -14,6 +14,65 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 _Sin cambios pendientes._
 
+## [2.1.1] - 2026-11-22
+
+**Revisado y validado contra Vigilante 3.1.0**, la versión de multisitio, sobre el diff completo
+desde la 3.0.14 y con el zip que Fernando Tellado nos pasó por correo el 2026-11-22, antes de
+publicarla (SHA-256 `77999608e62b17fa88796093907e445ca3e15378340339d64be509ea062df457`). Fernando
+había probado la 2.1.0 en su red de pruebas, migrada y con 205 sitios, y nos contó dos cosas que
+vio; las dos eran nuestras y quedan corregidas aquí.
+
+### Revisado (sin cambios necesarios)
+- Todo lo que usa el plugin existe en la 3.1.0 con la misma firma: `validate_options()`,
+  `get_user_data_keys()`, `get_shared_file_settings()`, `can_write_shared_files()`,
+  `two_factor_required_for()` de `Vigilante_Settings`; los tres de `Vigilante_IP_Utils`; la acción
+  `vigilante_firewall_lines_dropped`; las opciones `vigilante_hidden_404_copy` y
+  `vigilante_login_rules_version`; los métodos privados que se llaman por dentro
+  (`send_not_found()`, `not_found_copy_is_valid()`, `keep_only_clearing_cookies()`,
+  `two_factor_site_requires()`, `peer_is_trusted_proxy()`), y los nuevos
+  `network_config_active()`, `get_site_keys()`, `subsite_login_closed()` y
+  `send_login_not_found()`.
+- En una red migrada, `Vigilante_Settings::get_stored()` compone la configuración de red con las
+  claves de `get_site_keys()` leídas del `vigilante_options` de cada sitio: la copia de listas que
+  hace el sync sigue teniendo efecto. `may_write_site_key()` solo filtra lo que pasa por
+  `store()`, no el `update_option()` del sync.
+- `get_site_keys()` gana `login_security.notify_on_login_url_change` y ya no tiene las cuatro
+  claves de HTTPS (son de red desde el correo del 2026-11-19); `csp.report_uri` va con punto.
+
+### Corregido
+- **Una lista vacía del principal borraba la del subsitio.** Con la casilla de listas, la lista del
+  principal sustituía a la del destino aunque estuviera vacía, así que un subsitio con lista propia
+  la perdía. `build_lists_payload()` (red migrada) y `build_payload()` (sin migrar) tratan ahora una
+  lista vacía (array sin líneas o cadena en blanco) como «el principal no tiene lista»: se conserva
+  la del destino, que es lo que ya decía el comentario del método. Contrapartida: vaciar una lista
+  en el principal ya no la vacía en los subsitios; se hace en cada sitio, y la pantalla lo dice
+  junto a la casilla.
+- **El aviso de versión no hacía caso del botón «He revisat».** `vigilante_newer_than_compat()`
+  solo comparaba con la cabecera `Vigilante compat:`, así que el aviso seguía en toda la
+  administración de red mientras la página decía que la versión estaba marcada como compatible.
+  El botón guarda ahora `compat_marked_vigilante_version`, y el aviso se apaga para esa versión
+  (vuelve con una más nueva). No se usa `last_known_vigilante_version`, que también se rellena
+  sola al activar el plugin: activarlo con una versión más nueva no es haberla revisado. Lógica en
+  el helper puro `Vigsync_Detector::version_newer_than_compat()`.
+
+### Cambiado
+- **La lista blanca de login ya no se copia con Vigilante 3.1.0.** En la 3.1.0 los intentos de
+  login de toda la red se cuentan en la tabla del principal, y la excepción de ese contador y de
+  su bloqueo es la lista del principal, migrada la red o no
+  (`Vigilante_Login_Security::is_ip_whitelisted()` con `login_counter_is_shared()`). Copiar
+  `login_security.ip_whitelist` a los subsitios no cambiaba nada y daba a entender lo contrario:
+  ahora se conserva la del destino. Nuevo `Vigsync_Detector::login_whitelist_from_main()`, que usa
+  el cierre nativo del login como señal de la 3.1.0.
+- **`notify_on_login_url_change` viaja con el slug.** Si «Copiar también el slug de custom-login»
+  está desmarcada, también se conserva del subsitio el aviso a los usuarios cuando cambia la URL de
+  acceso, como hace Vigilante al pasarlo a `get_site_keys()`.
+- Cabecera `Vigilante compat:` a **3.1.0**.
+
+### Tests
+- 208 asserts (19 nuevos): listas vacías en red migrada y sin migrar, lista blanca de login con y
+  sin la 3.1.0, `notify_on_login_url_change` con y sin el slug y los casos del aviso de versión. La
+  lista `$site_keys_310` del test es ahora la real del zip.
+
 ## [2.1.0] - 2026-11-20
 
 Preparación para **Vigilante 3.1.0**, la versión de multisitio, antes de que salga. Fernando

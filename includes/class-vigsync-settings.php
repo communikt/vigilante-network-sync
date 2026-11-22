@@ -39,14 +39,17 @@ class Vigsync_Settings {
 	 */
 	public static function get_defaults() {
 		return array(
-			'source_site_id'               => get_main_site_id(),
-			'login_block_enabled'          => false,
-			'sync_ip_lists'                => false,
-			'sync_custom_login'            => true,
-			'sync_two_factor'              => false,
-			'notify_email'                 => get_site_option( 'admin_email' ),
-			'last_known_vigilante_version' => '',
-			'last_sync'                    => array(),
+			'source_site_id'                  => get_main_site_id(),
+			'login_block_enabled'             => false,
+			'sync_ip_lists'                   => false,
+			'sync_custom_login'               => true,
+			'sync_two_factor'                 => false,
+			'notify_email'                    => get_site_option( 'admin_email' ),
+			'last_known_vigilante_version'    => '',
+			// Versió marcada a mà amb el botó «He revisat» (2.1.1). Només aquesta apaga
+			// l'avís de versió més nova que la validada.
+			'compat_marked_vigilante_version' => '',
+			'last_sync'                       => array(),
 		);
 	}
 

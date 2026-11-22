@@ -6,10 +6,10 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Vigilante Network Sync 2.1.0\n"
+"Project-Id-Version: Vigilante Network Sync 2.1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/communikt/vigilante-network-sync/"
 "issues\n"
-"POT-Creation-Date: 2026-11-20 07:49+0100\n"
+"POT-Creation-Date: 2026-11-22 13:37+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,19 +18,19 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: includes/class-vigsync-detector.php:278
+#: includes/class-vigsync-detector.php:300
 msgid "La configuració de Vigilante al site principal és buida o inexistent."
 msgstr ""
 
 #. translators: %s: nom de la clau de configuració que falta
-#: includes/class-vigsync-detector.php:290
+#: includes/class-vigsync-detector.php:312
 #, php-format
 msgid ""
 "L'esquema de Vigilante no és el esperat: falta la secció «%s». S'avorta la "
 "sincronització per seguretat."
 msgstr ""
 
-#: includes/class-vigsync-detector.php:301
+#: includes/class-vigsync-detector.php:323
 msgid ""
 "L'esquema de login de Vigilante ha canviat (no hi ha «custom_login_url»). "
 "S'avorta la sincronització per seguretat."
@@ -49,35 +49,35 @@ msgstr ""
 msgid "No tens permisos per fer aquesta acció."
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:109
+#: includes/class-vigsync-network-admin.php:110
 msgid "Versió de Vigilante marcada com a compatible."
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:138
-#: includes/class-vigsync-network-admin.php:171
+#: includes/class-vigsync-network-admin.php:139
+#: includes/class-vigsync-network-admin.php:172
 msgid "Configuració desada."
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:174
+#: includes/class-vigsync-network-admin.php:175
 msgid ""
 "Nota: el bloqueig de login no s'ha activat perquè la xarxa és de subdominis "
 "(la cookie d'autenticació no es comparteix i et deixaria fora dels subsites)."
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:176
+#: includes/class-vigsync-network-admin.php:177
 msgid ""
 "Nota: el bloqueig de login no s'ha activat perquè el site principal no té el "
 "custom-login de Vigilante configurat."
 msgstr ""
 
 #. translators: 1: versió antiga, 2: versió nova
-#: includes/class-vigsync-network-admin.php:215
+#: includes/class-vigsync-network-admin.php:216
 #, php-format
 msgid "Vigilante ha canviat de la versió %1$s a la %2$s."
 msgstr ""
 
 #. translators: 1: versió de Vigilante instal·lada, 2: versió validada
-#: includes/class-vigsync-network-admin.php:223
+#: includes/class-vigsync-network-admin.php:224
 #, php-format
 msgid ""
 "La versió de Vigilante instal·lada (%1$s) és més nova que la validada per "
@@ -85,22 +85,22 @@ msgid ""
 "abans de confiar-hi la sincronització i el bloqueig de login."
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:231
+#: includes/class-vigsync-network-admin.php:232
 msgid "Vigilante Network Sync — canvi detectat a Vigilante"
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:234
+#: includes/class-vigsync-network-admin.php:235
 msgid "Revisar a la pàgina de Vigilante Sync"
 msgstr ""
 
 #. translators: %s: nom de la xarxa
-#: includes/class-vigsync-network-admin.php:256
+#: includes/class-vigsync-network-admin.php:257
 #, php-format
 msgid "[%s] Vigilante ha canviat de versió"
 msgstr ""
 
 #. translators: 1: versió nova de Vigilante, 2: versió validada, 3: URL de la pàgina
-#: includes/class-vigsync-network-admin.php:262
+#: includes/class-vigsync-network-admin.php:263
 #, php-format
 msgid ""
 "S'ha detectat un canvi a Vigilante (versió actual: %1$s; validada per "
@@ -111,7 +111,7 @@ msgid ""
 "%3$s"
 msgstr ""
 
-#: includes/class-vigsync-network-admin.php:278
+#: includes/class-vigsync-network-admin.php:279
 msgid "No tens permisos per accedir a aquesta pàgina."
 msgstr ""
 
@@ -249,7 +249,7 @@ msgid ""
 msgstr ""
 
 #: includes/views/network-settings-page.php:76
-#: includes/views/network-settings-page.php:309
+#: includes/views/network-settings-page.php:329
 msgid "Estat"
 msgstr ""
 
@@ -357,37 +357,51 @@ msgid ""
 "la CSP report-uri, ni els ajustos d'HTTPS de cada site."
 msgstr ""
 
-#: includes/views/network-settings-page.php:190
-msgid "Copiar també el slug de custom-login al destí"
+#: includes/views/network-settings-page.php:189
+#: includes/views/network-settings-page.php:229
+msgid ""
+"Una llista buida del principal no esborra la del site: per buidar una llista "
+"de tota la xarxa, cal fer-ho a cada site."
 msgstr ""
 
-#: includes/views/network-settings-page.php:194
-msgid "(obligatori mentre el bloqueig de login als subsites estigui actiu)"
+#: includes/views/network-settings-page.php:192
+#: includes/views/network-settings-page.php:232
+msgid ""
+"La llista blanca de login no es copia: amb aquesta versió de Vigilante la "
+"que compta a tota la xarxa és la del principal."
 msgstr ""
 
 #: includes/views/network-settings-page.php:199
+msgid "Copiar també el slug de custom-login al destí"
+msgstr ""
+
+#: includes/views/network-settings-page.php:203
+msgid "(obligatori mentre el bloqueig de login als subsites estigui actiu)"
+msgstr ""
+
+#: includes/views/network-settings-page.php:208
 msgid "Copiar també les llistes d'IPs i User-Agents (whitelist/blacklist)"
 msgstr ""
 
-#: includes/views/network-settings-page.php:205
+#: includes/views/network-settings-page.php:214
 msgid ""
 "Copiar també la configuració de 2FA (recomanat: Vigilante ja la decideix per "
 "a tota la xarxa)"
 msgstr ""
 
-#: includes/views/network-settings-page.php:207
+#: includes/views/network-settings-page.php:216
 msgid ""
 "Copiar també la configuració de 2FA (només recomanat si el mètode és e-mail)"
 msgstr ""
 
-#: includes/views/network-settings-page.php:212
+#: includes/views/network-settings-page.php:221
 msgid ""
 "Per defecte es preserven de cada site les llistes d'IPs i User-Agents, la "
 "CSP report-uri, la configuració de 2FA i els destinataris addicionals "
 "d'avisos."
 msgstr ""
 
-#: includes/views/network-settings-page.php:213
+#: includes/views/network-settings-page.php:222
 msgid ""
 "Aquesta versió de Vigilante decideix el segon factor per a TOTA la xarxa: la "
 "política és la unió del que demana cada site, així que n'hi ha prou que un "
@@ -398,7 +412,7 @@ msgid ""
 "sense poder validar."
 msgstr ""
 
-#: includes/views/network-settings-page.php:215
+#: includes/views/network-settings-page.php:224
 msgid ""
 "Per defecte es preserven de cada site les llistes d'IPs i User-Agents, la "
 "CSP report-uri, la configuració de 2FA i els destinataris addicionals "
@@ -407,12 +421,12 @@ msgid ""
 "sense poder validar al destí."
 msgstr ""
 
-#: includes/views/network-settings-page.php:219
+#: includes/views/network-settings-page.php:239
 msgid "Segon factor divergent a la xarxa."
 msgstr ""
 
 #. translators: %s: llista de sites, separats per comes
-#: includes/views/network-settings-page.php:223
+#: includes/views/network-settings-page.php:243
 #, php-format
 msgid ""
 "Aquests sites demanen un segon factor diferent del site principal: %s. Com "
@@ -421,7 +435,7 @@ msgid ""
 "unificar-la, o revisa la configuració de 2FA d'aquests sites."
 msgstr ""
 
-#: includes/views/network-settings-page.php:230
+#: includes/views/network-settings-page.php:250
 msgid ""
 "Vigilante 2.9.8 o superior detectat: els ajustos que només s'escriuen a wp-"
 "config.php i al .htaccess (capçaleres de seguretat, hardening de WP i les "
@@ -430,12 +444,12 @@ msgid ""
 "copiar-hi res no tindria cap efecte."
 msgstr ""
 
-#: includes/views/network-settings-page.php:237
-#: includes/views/network-settings-page.php:248
+#: includes/views/network-settings-page.php:257
+#: includes/views/network-settings-page.php:268
 msgid "Login unificat"
 msgstr ""
 
-#: includes/views/network-settings-page.php:239
+#: includes/views/network-settings-page.php:259
 msgid ""
 "Aquesta versió de Vigilante tanca ella mateixa el login dels subsites, també "
 "abans de migrar a la configuració de xarxa, així que el bloqueig d'aquest "
@@ -444,50 +458,50 @@ msgid ""
 "torna a una versió anterior de Vigilante."
 msgstr ""
 
-#: includes/views/network-settings-page.php:252
+#: includes/views/network-settings-page.php:272
 msgid ""
 "Bloquejar el login als subsites (el login només es fa al site principal)"
 msgstr ""
 
-#: includes/views/network-settings-page.php:255
+#: includes/views/network-settings-page.php:275
 msgid ""
 "Deshabilitat: la xarxa és de subdominis i la cookie d'autenticació no es "
 "comparteix; el bloqueig et deixaria fora dels wp-admin dels subsites."
 msgstr ""
 
-#: includes/views/network-settings-page.php:257
+#: includes/views/network-settings-page.php:277
 msgid ""
 "Deshabilitat: cal que el site principal tingui el custom-login de Vigilante "
 "configurat."
 msgstr ""
 
-#: includes/views/network-settings-page.php:259
+#: includes/views/network-settings-page.php:279
 msgid ""
 "Els subsites respondran un 404 a qualsevol intent de login (wp-login.php i "
 "slug), sense revelar el slug del principal. Inicia sessió un sol cop al "
 "principal; la cookie de xarxa et dona accés a tots els subsites."
 msgstr ""
 
-#: includes/views/network-settings-page.php:260
+#: includes/views/network-settings-page.php:280
 msgid ""
 "Els subsites amb un domini propi (mapejat) en queden fora: no comparteixen "
 "la cookie del principal, i bloquejar-los el login deixaria els seus "
 "administradors sense poder entrar."
 msgstr ""
 
-#: includes/views/network-settings-page.php:261
+#: includes/views/network-settings-page.php:281
 msgid ""
 "Mentre estigui actiu, el slug de custom-login es copia sempre als subsites: "
 "sense ell, Vigilante no hi captura la còpia de la pàgina 404 del tema ni hi "
 "respon 404 a wp-admin, i el bloqueig es distingiria d'una pàgina inexistent."
 msgstr ""
 
-#: includes/views/network-settings-page.php:265
+#: includes/views/network-settings-page.php:285
 msgid "Subsites sense la URL de login de Vigilante."
 msgstr ""
 
 #. translators: %s: llista de sites, separats per comes
-#: includes/views/network-settings-page.php:269
+#: includes/views/network-settings-page.php:289
 #, php-format
 msgid ""
 "Aquests subsites encara no tenen el custom-login de Vigilante: %s. El "
@@ -496,86 +510,86 @@ msgid ""
 "Fes «Sincronitza ara» per copiar-hi el slug del principal."
 msgstr ""
 
-#: includes/views/network-settings-page.php:279
+#: includes/views/network-settings-page.php:299
 msgid "Email d'avisos"
 msgstr ""
 
-#: includes/views/network-settings-page.php:282
+#: includes/views/network-settings-page.php:302
 msgid "Rebrà un avís quan Vigilante canviï de versió (un cop per versió)."
 msgstr ""
 
-#: includes/views/network-settings-page.php:287
+#: includes/views/network-settings-page.php:307
 msgid "Desar configuració"
 msgstr ""
 
-#: includes/views/network-settings-page.php:291
+#: includes/views/network-settings-page.php:311
 msgid "Sincronitzar ara"
 msgstr ""
 
-#: includes/views/network-settings-page.php:296
+#: includes/views/network-settings-page.php:316
 msgid ""
 "Copia les llistes d'IPs i User-Agents del site principal a la resta de sites "
 "de la xarxa."
 msgstr ""
 
-#: includes/views/network-settings-page.php:298
+#: includes/views/network-settings-page.php:318
 msgid ""
 "Replica la configuració del site principal a la resta de sites de la xarxa."
 msgstr ""
 
-#: includes/views/network-settings-page.php:300
+#: includes/views/network-settings-page.php:320
 msgid "Sincronitza ara"
 msgstr ""
 
-#: includes/views/network-settings-page.php:304
+#: includes/views/network-settings-page.php:324
 msgid "Resultat de la sincronització"
 msgstr ""
 
-#: includes/views/network-settings-page.php:308
+#: includes/views/network-settings-page.php:328
 msgid "Site"
 msgstr ""
 
-#: includes/views/network-settings-page.php:310
+#: includes/views/network-settings-page.php:330
 msgid "Detall"
 msgstr ""
 
-#: includes/views/network-settings-page.php:321
+#: includes/views/network-settings-page.php:341
 msgid "Correcte"
 msgstr ""
 
-#: includes/views/network-settings-page.php:322
+#: includes/views/network-settings-page.php:342
 msgid "Sense canvis"
 msgstr ""
 
-#: includes/views/network-settings-page.php:323
+#: includes/views/network-settings-page.php:343
 msgid "Error"
 msgstr ""
 
-#: includes/views/network-settings-page.php:336
+#: includes/views/network-settings-page.php:356
 msgid "Compatibilitat amb Vigilante"
 msgstr ""
 
 #. translators: 1: versió validada, 2: versió coneguda
-#: includes/views/network-settings-page.php:341
+#: includes/views/network-settings-page.php:361
 #, php-format
 msgid ""
 "Versió de Vigilante validada per aquesta release: %1$s. Última versió "
 "marcada com a compatible: %2$s."
 msgstr ""
 
-#: includes/views/network-settings-page.php:350
+#: includes/views/network-settings-page.php:370
 msgid "He revisat: marca la versió actual com a compatible"
 msgstr ""
 
-#: includes/views/network-settings-page.php:355
+#: includes/views/network-settings-page.php:375
 msgid "Recomanacions"
 msgstr ""
 
-#: includes/views/network-settings-page.php:357
+#: includes/views/network-settings-page.php:377
 msgid "Mode bloqueig (recomanat per a 2FA un sol cop, xarxa multi-idioma):"
 msgstr ""
 
-#: includes/views/network-settings-page.php:358
+#: includes/views/network-settings-page.php:378
 msgid ""
 "configura el custom-login al site principal, mantén el slug copiat als "
 "subsites (sync) i activa el bloqueig de login. El login només funciona al "
@@ -583,22 +597,22 @@ msgid ""
 "un sol cop al principal i la cookie de xarxa cobreix la resta."
 msgstr ""
 
-#: includes/views/network-settings-page.php:359
+#: includes/views/network-settings-page.php:379
 msgid "Mode independent:"
 msgstr ""
 
-#: includes/views/network-settings-page.php:360
+#: includes/views/network-settings-page.php:380
 msgid ""
 "mateix slug a tots els sites (via sync) i bloqueig desactivat. Cada site "
 "amaga el seu propi login; el 2FA s'enrola per-site (recorda: amb TOTP, no "
 "sincronitzis la config de 2FA)."
 msgstr ""
 
-#: includes/views/network-settings-page.php:361
+#: includes/views/network-settings-page.php:381
 msgid "Recuperació d'emergència:"
 msgstr ""
 
-#: includes/views/network-settings-page.php:362
+#: includes/views/network-settings-page.php:382
 msgid ""
 "defineix VIGSYNC_DISABLE_LOGIN_GUARD a true al wp-config.php per desactivar "
 "el bloqueig sense tocar la base de dades (també s'accepta l'antic "

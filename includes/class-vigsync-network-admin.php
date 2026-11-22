@@ -101,7 +101,8 @@ class Vigsync_Network_Admin {
 				check_admin_referer( 'vigsync_mark_compatible' );
 				Vigsync_Settings::update(
 					array(
-						'last_known_vigilante_version' => Vigsync_Detector::vigilante_version(),
+						'last_known_vigilante_version'    => Vigsync_Detector::vigilante_version(),
+						'compat_marked_vigilante_version' => Vigsync_Detector::vigilante_version(),
 					)
 				);
 				$this->action_result = array(
